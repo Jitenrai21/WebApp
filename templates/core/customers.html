@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Customers | Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-7">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">Customers</h1>
+            <p class="text-sm text-base-content/70 mt-1">Manage customer profiles and review linked transactions and sales.</p>
+        </div>
+        <a href="{% url 'customer_create' %}" class="btn btn-primary">Add Customer</a>
+    </div>
+
+    <form method="get" class="card bg-base-100 border border-base-300 p-4 sm:p-5 grid gap-3 md:grid-cols-3">
+        <label class="form-control">
+            <span class="label-text mb-1">Search</span>
+            <input type="text" name="q" value="{{ filters.q }}" class="input input-bordered w-full" placeholder="Name, phone, address, credit terms" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Type</span>
+            <select name="type" class="select select-bordered w-full">
+                <option value="">All</option>
+                <option value="regular" {% if filters.type == 'regular' %}selected{% endif %}>Regular</option>
+                <option value="supplier" {% if filters.type == 'supplier' %}selected{% endif %}>Supplier</option>
+                <option value="wholesale" {% if filters.type == 'wholesale' %}selected{% endif %}>Wholesale</option>
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Credit Status</span>
+            <select name="credit_status" class="select select-bordered w-full">
+                <option value="">All</option>
+                <option value="with_balance" {% if filters.credit_status == 'with_balance' %}selected{% endif %}>With Opening Balance</option>
+                <option value="zero_balance" {% if filters.credit_status == 'zero_balance' %}selected{% endif %}>Zero Opening Balance</option>
+            </select>
+        </label>
+        <div class="md:col-span-3">
+            <button class="btn btn-outline" type="submit">Apply Filters</button>
+        </div>
+    </form>
+
+    <div class="card bg-base-100 border border-base-300 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Phone</th>
+                        <th>Credit Terms</th>
+                        <th>Opening Balance</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td>{{ customer.name }}</td>
+                        <td><span class="badge badge-outline">{{ customer.get_type_display }}</span></td>
+                        <td>{{ customer.phone|default:'-' }}</td>
+                        <td>{{ customer.credit_terms|default:'-' }}</td>
+                        <td>NPR {{ customer.opening_balance }}</td>
+                        <td class="text-right">
+                            <a href="{% url 'customer_detail' customer.id %}" class="btn btn-xs btn-outline">View</a>
+                            <a href="{% url 'customer_edit' customer.id %}" class="btn btn-xs btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-base-content/60">No customers found for current filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

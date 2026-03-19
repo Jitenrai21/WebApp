@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="flex items-center justify-between gap-3">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+            <p class="text-sm text-base-content/70 mt-1">Capture sale records with itemized entries and customer linkage.</p>
+        </div>
+        <a href="{% url 'sales' %}" class="btn btn-outline">Back to Sales</a>
+    </div>
+
+    {% if not has_customers %}
+    <div class="alert alert-warning"><span>No customers found. Create a customer before adding a sale.</span></div>
+    {% endif %}
+
+    <form method="post" class="card bg-base-100 border border-base-300 p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error"><span>{{ form.non_field_errors|join:', ' }}</span></div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_invoice_number"><span class="label-text">Invoice Number</span></label>
+                {{ form.invoice_number }}
+                {% if form.invoice_number.errors %}<p class="text-error text-sm mt-1">{{ form.invoice_number.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_date"><span class="label-text">Date</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_due_date"><span class="label-text">Due Date</span></label>
+                {{ form.due_date }}
+                {% if form.due_date.errors %}<p class="text-error text-sm mt-1">{{ form.due_date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_customer"><span class="label-text">Customer</span></label>
+                {{ form.customer }}
+                {% if form.customer.errors %}<p class="text-error text-sm mt-1">{{ form.customer.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_total_amount"><span class="label-text">Total Amount</span></label>
+                {{ form.total_amount }}
+                {% if form.total_amount.errors %}<p class="text-error text-sm mt-1">{{ form.total_amount.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_items"><span class="label-text">Items (JSON)</span></label>
+                {{ form.items }}
+                <p class="text-xs text-base-content/60 mt-1">Example: [{"item": "Product A", "quantity": 2, "price": 500}]</p>
+                {% if form.items.errors %}<p class="text-error text-sm mt-1">{{ form.items.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_notes"><span class="label-text">Description / Notes</span></label>
+                {{ form.notes }}
+                {% if form.notes.errors %}<p class="text-error text-sm mt-1">{{ form.notes.errors|join:', ' }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Alerts | Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-7">
+    <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">Notifications & Timeline Alerts</h1>
+        <p class="text-base-content/70 mt-1">Track overdue and upcoming sales or transactions due within the next seven days.</p>
+    </div>
+
+    <form
+        method="get"
+        class="card bg-base-100 border border-base-300 p-4 sm:p-5 grid gap-3 md:grid-cols-2 lg:grid-cols-5"
+        hx-get="{% url 'alerts' %}"
+        hx-target="#alerts-content"
+        hx-trigger="change"
+        hx-push-url="true"
+    >
+        <label class="form-control">
+            <span class="label-text mb-1">Type</span>
+            <select name="type" class="select select-bordered w-full">
+                <option value="" {% if not filters.type %}selected{% endif %}>All</option>
+                <option value="overdue" {% if filters.type == 'overdue' %}selected{% endif %}>Overdue</option>
+                <option value="upcoming" {% if filters.type == 'upcoming' %}selected{% endif %}>Upcoming (7 days)</option>
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Customer</span>
+            <select name="customer" class="select select-bordered w-full">
+                <option value="">All</option>
+                {% for customer in customers %}
+                <option value="{{ customer.id }}" {% if filters.customer == customer.id|stringformat:'s' %}selected{% endif %}>{{ customer.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">From</span>
+            <input type="date" name="date_from" value="{{ filters.date_from }}" class="input input-bordered w-full" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">To</span>
+            <input type="date" name="date_to" value="{{ filters.date_to }}" class="input input-bordered w-full" />
+        </label>
+        <div class="flex items-end gap-2">
+            <button class="btn btn-outline w-full" type="submit">Apply</button>
+            <a href="{% url 'alerts' %}" class="btn btn-ghost">Reset</a>
+        </div>
+    </form>
+
+    <div id="alerts-content">
+        {% include 'core/partials/alerts_content.html' %}
+    </div>
+</div>
+{% endblock %}

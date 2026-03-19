@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Logged Out | Company Flow{% endblock %}
+
+{% block auth_content %}
+<div class="card w-full max-w-md bg-base-100 shadow-lg border border-base-300">
+    <div class="card-body text-center p-6 sm:p-7">
+        <h1 class="text-3xl font-extrabold tracking-tight">You are logged out</h1>
+        <p class="text-base-content/70">Your session has ended successfully.</p>
+        <a href="{% url 'login' %}" class="btn btn-primary mt-4">Login again</a>
+    </div>
+</div>
+{% endblock %}

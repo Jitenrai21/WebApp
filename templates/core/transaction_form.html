@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="flex items-center justify-between gap-3">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+            <p class="text-sm text-base-content/70 mt-1">Create or update a cash transaction record.</p>
+        </div>
+        <a href="{% url 'cash_entries' %}" class="btn btn-outline">Back to List</a>
+    </div>
+
+    {% if not has_customers %}
+    <div class="alert alert-warning">
+        <span>No customers found. Add at least one customer in admin before creating transactions.</span>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="card bg-base-100 border border-base-300 p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <span>{{ form.non_field_errors|join:', ' }}</span>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_date"><span class="label-text">Date</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_due_date"><span class="label-text">Due Date (optional)</span></label>
+                {{ form.due_date }}
+                {% if form.due_date.errors %}<p class="text-error text-sm mt-1">{{ form.due_date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_amount"><span class="label-text">Amount</span></label>
+                {{ form.amount }}
+                {% if form.amount.errors %}<p class="text-error text-sm mt-1">{{ form.amount.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_type"><span class="label-text">Type</span></label>
+                {{ form.type }}
+                {% if form.type.errors %}<p class="text-error text-sm mt-1">{{ form.type.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_status"><span class="label-text">Status</span></label>
+                {{ form.status }}
+                {% if form.status.errors %}<p class="text-error text-sm mt-1">{{ form.status.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_customer"><span class="label-text">Customer</span></label>
+                {{ form.customer }}
+                {% if form.customer.errors %}<p class="text-error text-sm mt-1">{{ form.customer.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_sale"><span class="label-text">Linked Sale (optional)</span></label>
+                {{ form.sale }}
+                {% if form.sale.errors %}<p class="text-error text-sm mt-1">{{ form.sale.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_category"><span class="label-text">Category</span></label>
+                {{ form.category }}
+                {% if form.category.errors %}<p class="text-error text-sm mt-1">{{ form.category.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_description"><span class="label-text">Description</span></label>
+                {{ form.description }}
+                {% if form.description.errors %}<p class="text-error text-sm mt-1">{{ form.description.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_attachment"><span class="label-text">Attachment</span></label>
+                {{ form.attachment }}
+                {% if transaction and transaction.attachment %}
+                <p class="text-sm mt-1">Current file: <a class="link link-primary" href="{{ transaction.attachment.url }}" target="_blank" rel="noopener noreferrer">View Attachment</a></p>
+                {% endif %}
+                {% if form.attachment.errors %}<p class="text-error text-sm mt-1">{{ form.attachment.errors|join:', ' }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,257 @@
+import json
+from datetime import timedelta
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from .forms import SaleForm
+from .models import AlertNotification, Customer, CustomerType, RecordStatus, Sale, Transaction, TransactionType
+
+
+class SalesWorkflowTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="tester", password="pass1234")
+		self.customer = Customer.objects.create(
+			name="Acme Pvt",
+			type=CustomerType.REGULAR,
+		)
+		self.sale = Sale.objects.create(
+			invoice_number="INV-1001",
+			customer=self.customer,
+			total_amount=Decimal("1000.00"),
+			due_date="2026-03-30",
+			items=[{"item": "Item A", "quantity": 2, "price": 500}],
+			notes="Monthly recurring order",
+		)
+
+	def test_sale_detail_requires_login(self):
+		response = self.client.get(reverse("sale_detail", args=[self.sale.pk]))
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse("login"), response.url)
+
+	def test_sales_filter_by_payment_status(self):
+		self.client.login(username="tester", password="pass1234")
+
+		# unpaid before any receipt
+		response_unpaid = self.client.get(reverse("sales"), {"status": "unpaid"})
+		self.assertContains(response_unpaid, "INV-1001")
+
+		Transaction.objects.create(
+			customer=self.customer,
+			sale=self.sale,
+			date="2026-03-10",
+			amount=Decimal("400.00"),
+			type=TransactionType.INCOME,
+			category="Sales Receipt",
+			status=RecordStatus.PAID,
+		)
+		response_partial = self.client.get(reverse("sales"), {"status": "partial"})
+		self.assertContains(response_partial, "INV-1001")
+
+		Transaction.objects.create(
+			customer=self.customer,
+			sale=self.sale,
+			date="2026-03-11",
+			amount=Decimal("600.00"),
+			type=TransactionType.INCOME,
+			category="Sales Receipt",
+			status=RecordStatus.PAID,
+		)
+		response_paid = self.client.get(reverse("sales"), {"status": "paid"})
+		self.assertContains(response_paid, "INV-1001")
+
+	def test_sale_form_validates_itemized_json(self):
+		invalid_form = SaleForm(
+			data={
+				"invoice_number": "INV-2001",
+				"date": "2026-03-12",
+				"customer": self.customer.pk,
+				"items": json.dumps([{"item": "Bad Item", "quantity": 0, "price": 10}]),
+				"notes": "Test",
+				"total_amount": "10",
+				"due_date": "2026-03-15",
+			}
+		)
+		self.assertFalse(invalid_form.is_valid())
+		self.assertIn("items", invalid_form.errors)
+
+		valid_form = SaleForm(
+			data={
+				"invoice_number": "INV-2002",
+				"date": "2026-03-12",
+				"customer": self.customer.pk,
+				"items": json.dumps([{"item": "Good Item", "quantity": 1, "price": 100}]),
+				"notes": "Test",
+				"total_amount": "100",
+				"due_date": "2026-03-16",
+			}
+		)
+		self.assertTrue(valid_form.is_valid())
+
+	def test_inline_receipt_create_links_to_sale(self):
+		self.client.login(username="tester", password="pass1234")
+
+		response = self.client.post(
+			reverse("sale_receipt_create", args=[self.sale.pk]),
+			data={
+				"date": "2026-03-12",
+				"amount": "700",
+				"category": "Sales Receipt",
+				"description": "First payment",
+				"status": RecordStatus.PAID,
+			},
+			HTTP_HX_REQUEST="true",
+		)
+
+		self.assertEqual(response.status_code, 200)
+		receipt = Transaction.objects.get(sale=self.sale)
+		self.assertEqual(receipt.customer, self.customer)
+		self.assertEqual(receipt.type, TransactionType.INCOME)
+		self.assertContains(response, "Linked Cash Receipts")
+
+
+class DashboardWorkflowTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="dash", password="pass1234")
+		self.customer = Customer.objects.create(
+			name="Dashboard Client",
+			type=CustomerType.REGULAR,
+		)
+		self.sale = Sale.objects.create(
+			invoice_number="INV-D-001",
+			customer=self.customer,
+			total_amount=Decimal("1200.00"),
+			due_date="2026-03-10",
+			date="2026-03-01",
+			items=[{"item": "Plan", "quantity": 1, "price": 1200}],
+		)
+		Transaction.objects.create(
+			customer=self.customer,
+			sale=self.sale,
+			date="2026-03-05",
+			amount=Decimal("300.00"),
+			type=TransactionType.INCOME,
+			category="Sales Receipt",
+			status=RecordStatus.PAID,
+		)
+		Transaction.objects.create(
+			customer=self.customer,
+			date="2026-03-06",
+			amount=Decimal("200.00"),
+			type=TransactionType.EXPENSE,
+			category="Operations",
+			status=RecordStatus.PAID,
+		)
+
+	def test_dashboard_requires_login(self):
+		response = self.client.get(reverse("dashboard"))
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse("login"), response.url)
+
+	def test_dashboard_renders_kpis_and_tables(self):
+		self.client.login(username="dash", password="pass1234")
+		response = self.client.get(reverse("dashboard"))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Total Sales")
+		self.assertContains(response, "Outstanding Receivables")
+		self.assertContains(response, "Recent Sales")
+		self.assertContains(response, "INV-D-001")
+
+	def test_dashboard_htmx_partial_response(self):
+		self.client.login(username="dash", password="pass1234")
+		response = self.client.get(
+			reverse("dashboard"),
+			{"date_from": "2026-03-01", "date_to": "2026-03-31"},
+			HTTP_HX_REQUEST="true",
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "sales-trend-chart")
+		self.assertNotContains(response, "<html")
+
+	def test_dashboard_filter_excludes_outside_date_range(self):
+		self.client.login(username="dash", password="pass1234")
+		response = self.client.get(
+			reverse("dashboard"),
+			{"date_from": "2026-04-01", "date_to": "2026-04-30"},
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, "INV-D-001")
+
+
+class AlertsWorkflowTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="alert-user", password="pass1234")
+		self.customer = Customer.objects.create(name="Alert Customer", type=CustomerType.REGULAR)
+		today = timezone.localdate()
+
+		self.overdue_sale = Sale.objects.create(
+			invoice_number="INV-A-OVERDUE",
+			customer=self.customer,
+			total_amount=Decimal("1000.00"),
+			due_date=today - timedelta(days=2),
+			date=today - timedelta(days=10),
+			items=[{"item": "A", "quantity": 1, "price": 1000}],
+		)
+		self.upcoming_sale = Sale.objects.create(
+			invoice_number="INV-A-UPCOMING",
+			customer=self.customer,
+			total_amount=Decimal("800.00"),
+			due_date=today + timedelta(days=3),
+			date=today,
+			items=[{"item": "B", "quantity": 1, "price": 800}],
+		)
+
+		self.overdue_tx = Transaction.objects.create(
+			customer=self.customer,
+			date=today - timedelta(days=5),
+			due_date=today - timedelta(days=1),
+			amount=Decimal("200.00"),
+			type=TransactionType.EXPENSE,
+			category="Vendor Payable",
+			status=RecordStatus.PENDING,
+		)
+
+	def test_alert_states_for_sale_and_transaction(self):
+		self.assertEqual(self.overdue_sale.alert_state, "overdue")
+		self.assertEqual(self.upcoming_sale.alert_state, "upcoming")
+		self.assertEqual(self.overdue_tx.alert_state, "overdue")
+
+	def test_alerts_page_requires_login(self):
+		response = self.client.get(reverse("alerts"))
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse("login"), response.url)
+
+	def test_alerts_filter_overdue(self):
+		self.client.login(username="alert-user", password="pass1234")
+		response = self.client.get(reverse("alerts"), {"type": "overdue"})
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "NPR 1000.00")
+		self.assertContains(response, "NPR 200.00")
+		self.assertNotContains(response, "NPR 800.00")
+
+	def test_badge_count_and_viewed_mark_read(self):
+		self.client.login(username="alert-user", password="pass1234")
+		call_command("process_alert_notifications")
+
+		badge_before = self.client.get(reverse("alerts_badge"))
+		self.assertContains(badge_before, "badge-error")
+
+		self.client.get(reverse("alerts"))
+		badge_after = self.client.get(reverse("alerts_badge"))
+		self.assertContains(badge_after, "badge-outline")
+		self.assertContains(badge_after, ">0<")
+
+	def test_scheduler_command_is_idempotent(self):
+		call_command("process_alert_notifications")
+		first_count = AlertNotification.objects.count()
+		call_command("process_alert_notifications")
+		second_count = AlertNotification.objects.count()
+		self.assertEqual(first_count, second_count)
+		self.assertGreater(first_count, 0)

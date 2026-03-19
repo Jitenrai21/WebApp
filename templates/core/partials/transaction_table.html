@@ -1,0 +1,52 @@
+<div class="card bg-base-100 border border-base-300 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="table table-zebra table-md">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Attachment</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.date }}</td>
+                    <td>{{ transaction.customer.name }}</td>
+                    <td>
+                        <span class="badge {% if transaction.type == 'income' %}badge-success{% else %}badge-error{% endif %} badge-outline">
+                            {{ transaction.get_type_display }}
+                        </span>
+                    </td>
+                    <td>{{ transaction.category }}</td>
+                    <td>NPR {{ transaction.amount }}</td>
+                    <td>
+                        <span class="badge {% if transaction.status == 'paid' %}badge-success{% else %}badge-warning{% endif %}">
+                            {{ transaction.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if transaction.attachment %}
+                        <a href="{{ transaction.attachment.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary">View</a>
+                        {% else %}
+                        <span class="text-base-content/50">None</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        <a href="{% url 'transaction_edit' transaction.id %}" class="btn btn-xs btn-outline">Edit</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-base-content/60 py-8">No transactions found for the selected filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

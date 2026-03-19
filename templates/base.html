@@ -1,0 +1,141 @@
+{% load static %}
+<!doctype html>
+<html lang="en" data-theme="companyflow">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Company Flow{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind = window.tailwind || {};
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'ui-sans-serif', 'sans-serif']
+                    },
+                    boxShadow: {
+                        soft: '0 16px 30px -22px rgba(74, 98, 138, 0.45)'
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <link rel="stylesheet" href="{% static 'core/theme.css' %}">
+</head>
+<body class="cf-app min-h-screen text-base-content">
+    {% if user.is_authenticated %}
+    <div class="drawer lg:drawer-open">
+        <input id="app-drawer" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col">
+            <div class="navbar cf-topbar px-4 sm:px-5 lg:px-6">
+                <div class="flex-none lg:hidden">
+                    <label for="app-drawer" aria-label="Open sidebar" class="btn btn-square btn-ghost">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                    </label>
+                </div>
+                <div class="flex-1">
+                    <a href="{% url 'dashboard' %}" class="btn btn-ghost text-lg font-extrabold tracking-tight">Company Flow</a>
+                </div>
+                <div class="flex-none gap-2">
+                    <span class="hidden sm:inline text-sm text-base-content/70">{{ request.user.username }}</span>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline">Logout</button>
+                    </form>
+                </div>
+            </div>
+            <main class="cf-content p-4 sm:p-6 lg:p-8">
+                {% if messages %}
+                <div class="space-y-2 mb-4">
+                    {% for message in messages %}
+                    <div class="alert cf-alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
+                        <span>{{ message }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+        <div class="drawer-side">
+            <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+            <aside class="cf-sidebar min-h-full w-72 p-4">
+                <h2 class="px-3 text-sm font-semibold uppercase tracking-wider text-base-content/60">Navigation</h2>
+                <ul class="menu mt-2 gap-1">
+                    <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+                    <li><a href="{% url 'cash_entries' %}" class="{% if '/cash-entries' in request.path %}active{% endif %}">Cash Entries</a></li>
+                    <li><a href="{% url 'sales' %}" class="{% if '/sales' in request.path %}active{% endif %}">Sales</a></li>
+                    <li><a href="{% url 'customers' %}" class="{% if '/customers' in request.path %}active{% endif %}">Customers</a></li>
+                    <li>
+                        <a href="{% url 'alerts' %}" class="{% if '/alerts' in request.path %}active{% endif %}">
+                            <span class="inline-flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 00-5 5v2.586l-.707.707A1 1 0 005 12h10a1 1 0 00.707-1.707L15 9.586V7a5 5 0 00-5-5z" /><path d="M10 18a3 3 0 01-2.995-2.824L7 15h6a3 3 0 01-2.824 2.995L10 18z" /></svg>
+                                <span>Alerts</span>
+                            </span>
+                            <span
+                                id="alerts-badge-container"
+                                hx-get="{% url 'alerts_badge' %}"
+                                hx-trigger="load, every 45s"
+                                hx-swap="innerHTML"
+                            >
+                                {% include 'core/partials/alerts_badge.html' with alerts_badge_count=0 %}
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+        </div>
+    </div>
+    {% else %}
+    <main class="cf-auth-shell min-h-screen flex items-center justify-center p-4">
+        <div class="cf-auth-backdrop"></div>
+        <div class="relative z-10 w-full flex items-center justify-center">
+            {% block auth_content %}{% endblock %}
+        </div>
+    </main>
+    {% endif %}
+    <script>
+        function applyRevealAnimations() {
+            document.querySelectorAll('.cf-content > *:not(.htmx-indicator)').forEach((element, index) => {
+                element.classList.add('cf-reveal');
+                element.style.animationDelay = `${Math.min(index * 60, 300)}ms`;
+            });
+        }
+
+        function initCustomerAutocomplete() {
+            if (!window.TomSelect) {
+                return;
+            }
+            document.querySelectorAll('select[data-customer-autocomplete="true"]').forEach((element) => {
+                if (element.tomselect) {
+                    return;
+                }
+                new TomSelect(element, {
+                    create: false,
+                    sortField: {
+                        field: 'text',
+                        direction: 'asc'
+                    },
+                    maxOptions: 400,
+                    placeholder: 'Search and select customer...'
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', applyRevealAnimations);
+        document.addEventListener('DOMContentLoaded', initCustomerAutocomplete);
+        document.body.addEventListener('htmx:afterSwap', () => {
+            initCustomerAutocomplete();
+            applyRevealAnimations();
+        });
+    </script>
+</body>
+</html>

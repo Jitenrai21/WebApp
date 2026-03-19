@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="flex items-center justify-between gap-3">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+            <p class="text-sm text-base-content/70 mt-1">Create or update customer records used across transactions and sales.</p>
+        </div>
+        <a href="{% url 'customers' %}" class="btn btn-outline">Back to List</a>
+    </div>
+
+    <form method="post" class="card bg-base-100 border border-base-300 p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error"><span>{{ form.non_field_errors|join:', ' }}</span></div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_name"><span class="label-text">Name</span></label>
+                {{ form.name }}
+                {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_phone"><span class="label-text">Phone</span></label>
+                {{ form.phone }}
+                {% if form.phone.errors %}<p class="text-error text-sm mt-1">{{ form.phone.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_address"><span class="label-text">Address</span></label>
+                {{ form.address }}
+                {% if form.address.errors %}<p class="text-error text-sm mt-1">{{ form.address.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_type"><span class="label-text">Type</span></label>
+                {{ form.type }}
+                {% if form.type.errors %}<p class="text-error text-sm mt-1">{{ form.type.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_opening_balance"><span class="label-text">Opening Balance</span></label>
+                {{ form.opening_balance }}
+                {% if form.opening_balance.errors %}<p class="text-error text-sm mt-1">{{ form.opening_balance.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_credit_terms"><span class="label-text">Credit Terms</span></label>
+                {{ form.credit_terms }}
+                {% if form.credit_terms.errors %}<p class="text-error text-sm mt-1">{{ form.credit_terms.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_profile_notes"><span class="label-text">Profile Notes</span></label>
+                {{ form.profile_notes }}
+                {% if form.profile_notes.errors %}<p class="text-error text-sm mt-1">{{ form.profile_notes.errors|join:', ' }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

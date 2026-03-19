@@ -1,0 +1,91 @@
+<div id="sale-receipts-panel" class="grid gap-5 xl:grid-cols-3">
+    <div class="card bg-base-100 border border-base-300 xl:col-span-2 overflow-hidden">
+        <div class="card-body pb-0">
+            <h2 class="card-title text-xl">Linked Cash Receipts</h2>
+            <p class="text-sm text-base-content/70">Running balance is calculated after each receipt.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table table-zebra">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Running Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in receipt_rows %}
+                    <tr>
+                        <td>{{ row.receipt.date }}</td>
+                        <td>{{ row.receipt.category }}</td>
+                        <td>NPR {{ row.receipt.amount }}</td>
+                        <td>
+                            <span class="badge {% if row.receipt.status == 'paid' %}badge-success{% else %}badge-warning{% endif %}">
+                                {{ row.receipt.get_status_display }}
+                            </span>
+                        </td>
+                        <td>NPR {{ row.running_balance }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-6 text-base-content/60">No linked receipts yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+        <div class="card-body">
+            <h2 class="card-title text-xl">Add Cash Receipt</h2>
+            {% if inline_success %}
+            <div class="alert alert-success text-sm"><span>{{ inline_success }}</span></div>
+            {% endif %}
+            <form
+                method="post"
+                action="{% url 'sale_receipt_create' sale.id %}"
+                hx-post="{% url 'sale_receipt_create' sale.id %}"
+                hx-target="#sale-receipts-panel"
+                hx-swap="outerHTML"
+                class="space-y-3"
+            >
+                {% csrf_token %}
+
+                {% if receipt_form.non_field_errors %}
+                <div class="alert alert-error"><span>{{ receipt_form.non_field_errors|join:', ' }}</span></div>
+                {% endif %}
+
+                <div class="form-control">
+                    <label class="label" for="id_date"><span class="label-text">Receipt Date</span></label>
+                    {{ receipt_form.date }}
+                    {% if receipt_form.date.errors %}<p class="text-error text-sm mt-1">{{ receipt_form.date.errors|join:', ' }}</p>{% endif %}
+                </div>
+                <div class="form-control">
+                    <label class="label" for="id_amount"><span class="label-text">Amount</span></label>
+                    {{ receipt_form.amount }}
+                    {% if receipt_form.amount.errors %}<p class="text-error text-sm mt-1">{{ receipt_form.amount.errors|join:', ' }}</p>{% endif %}
+                </div>
+                <div class="form-control">
+                    <label class="label" for="id_category"><span class="label-text">Category</span></label>
+                    {{ receipt_form.category }}
+                    {% if receipt_form.category.errors %}<p class="text-error text-sm mt-1">{{ receipt_form.category.errors|join:', ' }}</p>{% endif %}
+                </div>
+                <div class="form-control">
+                    <label class="label" for="id_status"><span class="label-text">Status</span></label>
+                    {{ receipt_form.status }}
+                    {% if receipt_form.status.errors %}<p class="text-error text-sm mt-1">{{ receipt_form.status.errors|join:', ' }}</p>{% endif %}
+                </div>
+                <div class="form-control">
+                    <label class="label" for="id_description"><span class="label-text">Description</span></label>
+                    {{ receipt_form.description }}
+                    {% if receipt_form.description.errors %}<p class="text-error text-sm mt-1">{{ receipt_form.description.errors|join:', ' }}</p>{% endif %}
+                </div>
+
+                <button class="btn btn-primary w-full" type="submit">Add Receipt</button>
+            </form>
+        </div>
+    </div>
+</div>

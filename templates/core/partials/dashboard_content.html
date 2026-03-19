@@ -1,0 +1,160 @@
+<div class="space-y-7">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body p-4">
+                <p class="text-[11px] uppercase tracking-[0.16em] text-base-content/60">Total Sales</p>
+                <p class="text-2xl font-semibold">NPR {{ kpis.total_sales }}</p>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body p-4">
+                <p class="text-[11px] uppercase tracking-[0.16em] text-base-content/60">Total Income</p>
+                <p class="text-2xl font-semibold text-success">NPR {{ kpis.total_income }}</p>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body p-4">
+                <p class="text-[11px] uppercase tracking-[0.16em] text-base-content/60">Total Expenses</p>
+                <p class="text-2xl font-semibold text-error">NPR {{ kpis.total_expenses }}</p>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body p-4">
+                <p class="text-[11px] uppercase tracking-[0.16em] text-base-content/60">Outstanding Receivables</p>
+                <p class="text-2xl font-semibold">NPR {{ kpis.outstanding_receivables }}</p>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body p-4">
+                <p class="text-[11px] uppercase tracking-[0.16em] text-base-content/60">Overdue Invoices</p>
+                <p class="text-2xl font-semibold">{{ kpis.overdue_count }}</p>
+                <p class="text-xs text-base-content/70">NPR {{ kpis.overdue_amount }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="card bg-base-100 border border-base-300 xl:col-span-2">
+            <div class="card-body">
+                <h2 class="card-title text-xl">Sales Trend</h2>
+                <div class="h-72"><canvas id="sales-trend-chart"></canvas></div>
+            </div>
+        </div>
+        <div class="card bg-base-100 border border-base-300">
+            <div class="card-body">
+                <h2 class="card-title text-xl">Income vs Expense</h2>
+                <div class="h-72"><canvas id="income-expense-chart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+        <div class="card-body">
+            <h2 class="card-title text-xl">Top Customers by Sales</h2>
+            <div class="h-72"><canvas id="top-customers-chart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="card bg-base-100 border border-base-300 overflow-hidden">
+            <div class="card-body pb-0">
+                <h2 class="card-title">Recent Sales</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-zebra table-sm">
+                    <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Customer</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in recent_sales %}
+                        <tr>
+                            <td><a href="{% url 'sale_detail' sale.id %}" class="link link-primary">{{ sale.invoice_number }}</a></td>
+                            <td>{{ sale.customer.name }}</td>
+                            <td>NPR {{ sale.total_amount }}</td>
+                            <td>
+                                {% if sale.received_total >= sale.total_amount %}
+                                <span class="badge badge-success">Paid</span>
+                                {% elif sale.received_total > 0 %}
+                                <span class="badge badge-warning">Partial</span>
+                                {% else %}
+                                <span class="badge badge-error">Unpaid</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center py-6 text-base-content/60">No sales available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 border border-base-300 overflow-hidden">
+            <div class="card-body pb-0">
+                <h2 class="card-title">Recent Cash Entries</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-zebra table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in recent_transactions %}
+                        <tr>
+                            <td>{{ tx.date }}</td>
+                            <td>{{ tx.get_type_display }}</td>
+                            <td>NPR {{ tx.amount }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center py-6 text-base-content/60">No transactions available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 border border-base-300 overflow-hidden">
+            <div class="card-body pb-0">
+                <h2 class="card-title">New Customers</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-zebra table-sm">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in recent_customers %}
+                        <tr>
+                            <td><a href="{% url 'customer_detail' customer.id %}" class="link link-primary">{{ customer.name }}</a></td>
+                            <td>{{ customer.get_type_display }}</td>
+                            <td>{{ customer.created_at|date:'Y-m-d' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center py-6 text-base-content/60">No customers available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{ sales_trend_labels|json_script:'sales-trend-labels' }}
+    {{ sales_trend_values|json_script:'sales-trend-values' }}
+    {{ income_expense_labels|json_script:'income-expense-labels' }}
+    {{ income_expense_values|json_script:'income-expense-values' }}
+    {{ top_customer_labels|json_script:'top-customer-labels' }}
+    {{ top_customer_values|json_script:'top-customer-values' }}
+</div>

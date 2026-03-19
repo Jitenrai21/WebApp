@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-7">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight">Dashboard</h1>
+            <p class="text-base-content/70 mt-1">KPI overview, trends, and recent activity in one place.</p>
+        </div>
+        <form
+            class="grid grid-cols-1 sm:grid-cols-3 gap-2"
+            hx-get="{% url 'dashboard' %}"
+            hx-target="#dashboard-content"
+            hx-trigger="change"
+            hx-push-url="true"
+        >
+            <label class="form-control">
+                <span class="label-text text-xs">From</span>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" class="input input-bordered input-sm" aria-label="Filter from date" />
+            </label>
+            <label class="form-control">
+                <span class="label-text text-xs">To</span>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" class="input input-bordered input-sm" aria-label="Filter to date" />
+            </label>
+            <div class="flex items-end">
+                <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm w-full">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="htmx-indicator">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 animate-pulse">
+            <div class="h-24 rounded-xl bg-base-300/60"></div>
+            <div class="h-24 rounded-xl bg-base-300/60"></div>
+            <div class="h-24 rounded-xl bg-base-300/60"></div>
+            <div class="h-24 rounded-xl bg-base-300/60"></div>
+            <div class="h-24 rounded-xl bg-base-300/60"></div>
+        </div>
+    </div>
+
+    <div id="dashboard-content">
+        {% include 'core/partials/dashboard_content.html' %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+    let dashboardCharts = {
+        salesTrend: null,
+        incomeExpense: null,
+        topCustomers: null
+    };
+
+    function readJsonScript(id) {
+        const element = document.getElementById(id);
+        if (!element) {
+            return null;
+        }
+        try {
+            return JSON.parse(element.textContent);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function destroyDashboardCharts() {
+        Object.keys(dashboardCharts).forEach((key) => {
+            if (dashboardCharts[key]) {
+                dashboardCharts[key].destroy();
+                dashboardCharts[key] = null;
+            }
+        });
+    }
+
+    function initDashboardCharts() {
+        if (!window.Chart) {
+            return;
+        }
+
+        const salesTrendLabels = readJsonScript('sales-trend-labels');
+        const salesTrendValues = readJsonScript('sales-trend-values');
+        const incomeExpenseLabels = readJsonScript('income-expense-labels');
+        const incomeExpenseValues = readJsonScript('income-expense-values');
+        const topCustomerLabels = readJsonScript('top-customer-labels');
+        const topCustomerValues = readJsonScript('top-customer-values');
+
+        const trendCanvas = document.getElementById('sales-trend-chart');
+        const pieCanvas = document.getElementById('income-expense-chart');
+        const topCanvas = document.getElementById('top-customers-chart');
+
+        destroyDashboardCharts();
+
+        if (trendCanvas && salesTrendLabels && salesTrendValues) {
+            dashboardCharts.salesTrend = new Chart(trendCanvas, {
+                type: 'line',
+                data: {
+                    labels: salesTrendLabels,
+                    datasets: [{
+                        label: 'Sales',
+                        data: salesTrendValues,
+                        borderColor: '#4A628A',
+                        backgroundColor: 'rgba(122, 178, 211, 0.28)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        if (pieCanvas && incomeExpenseLabels && incomeExpenseValues) {
+            dashboardCharts.incomeExpense = new Chart(pieCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: incomeExpenseLabels,
+                    datasets: [{
+                        data: incomeExpenseValues,
+                        backgroundColor: ['#4A628A', '#7AB2D3']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        if (topCanvas && topCustomerLabels && topCustomerValues) {
+            dashboardCharts.topCustomers = new Chart(topCanvas, {
+                type: 'bar',
+                data: {
+                    labels: topCustomerLabels,
+                    datasets: [{
+                        label: 'Sales',
+                        data: topCustomerValues,
+                        backgroundColor: '#7AB2D3'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initDashboardCharts);
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+        if (event.target && event.target.id === 'dashboard-content') {
+            initDashboardCharts();
+        }
+    });
+</script>
+{% endblock %}
