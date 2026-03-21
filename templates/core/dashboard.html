@@ -72,7 +72,8 @@
     let dashboardCharts = {
         salesTrend: null,
         incomeExpense: null,
-        topCustomers: null
+        topCustomers: null,
+        jcbSummary: null
     };
 
     function readJsonScript(id) {
@@ -105,11 +106,14 @@
         const salesTrendValues = readJsonScript('sales-trend-values');
         const incomeExpenseLabels = readJsonScript('income-expense-labels');
         const incomeExpenseValues = readJsonScript('income-expense-values');
+        const jcbSummaryLabels = readJsonScript('jcb-summary-labels');
+        const jcbSummaryValues = readJsonScript('jcb-summary-values');
         const topCustomerLabels = readJsonScript('top-customer-labels');
         const topCustomerValues = readJsonScript('top-customer-values');
 
         const trendCanvas = document.getElementById('sales-trend-chart');
         const pieCanvas = document.getElementById('income-expense-chart');
+        const jcbSummaryCanvas = document.getElementById('jcb-summary-chart');
         const topCanvas = document.getElementById('top-customers-chart');
 
         destroyDashboardCharts();
@@ -168,6 +172,33 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        if (jcbSummaryCanvas && jcbSummaryLabels && jcbSummaryValues) {
+            dashboardCharts.jcbSummary = new Chart(jcbSummaryCanvas, {
+                type: 'bar',
+                data: {
+                    labels: jcbSummaryLabels,
+                    datasets: [{
+                        label: 'JCB Summary',
+                        data: jcbSummaryValues,
+                        backgroundColor: ['#4A628A', '#7AB2D3', '#B9E5E8'],
+                        borderRadius: 8,
+                        maxBarThickness: 56
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    }
                 }
             });
         }

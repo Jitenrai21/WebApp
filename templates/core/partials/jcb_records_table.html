@@ -1,0 +1,121 @@
+<div class="cf-table-shell">
+    <div class="cf-table-head">
+        <h2 class="font-semibold">JCB Work Records</h2>
+        <span class="text-xs text-base-content/60">{{ jcb_records|length }} record{{ jcb_records|length|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="table table-zebra table-md">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Site Name</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Work Hours</th>
+                    <th>Total Amount</th>
+                    <th>Status</th>
+                    <th>Rate</th>
+                    <th>Income</th>
+                    <th>Expense</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in jcb_records %}
+                {% if record.expense_item and record.expense_amount and record.start_time == 0 and record.end_time == 0 %}
+                <tr class="bg-error/5">
+                    <td>{{ record.date }}</td>
+                    <td>
+                        <div class="flex items-center justify-between gap-3 min-w-[14rem]">
+                            <span class="truncate font-medium">{{ record.site_name|default:"-" }}</span>
+                            <span class="badge badge-error badge-soft badge-sm whitespace-nowrap gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M4 3a1 1 0 00-1 1v12a1 1 0 001.447.894L10 14.118l5.553 2.776A1 1 0 0017 16V4a1 1 0 00-1-1H4z" /></svg>
+                                Expense
+                            </span>
+                        </div>
+                    </td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td><span class="text-base-content/50 italic">N/A</span></td>
+                    <td>{{ record.expense_item }} (NPR {{ record.expense_amount }})</td>
+                    <td class="text-right">
+                        <div class="inline-flex gap-1">
+                            <a href="{% url 'jcb_record_edit' record.id %}" class="btn btn-xs btn-outline">Edit</a>
+                            <form method="post"
+                                  action="{% url 'jcb_record_delete' record.id %}"
+                                  hx-post="{% url 'jcb_record_delete' record.id %}"
+                                  hx-target="closest tr"
+                                  hx-swap="delete"
+                                  onsubmit="return confirm('Delete this JCB record? This cannot be undone.');"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-error btn-outline" aria-label="Delete JCB record {{ record.id }}">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td>{{ record.date }}</td>
+                    <td>
+                        <div class="flex items-center justify-between gap-3 min-w-[14rem]">
+                            <span class="truncate font-medium">{{ record.site_name|default:"-" }}</span>
+                            <span class="badge badge-info badge-outline badge-sm whitespace-nowrap gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 2a1 1 0 01.894.553l1.382 2.764 3.052.443a1 1 0 01.554 1.706l-2.208 2.152.521 3.04a1 1 0 01-1.451 1.054L10 12.347l-2.744 1.443a1 1 0 01-1.451-1.054l.52-3.04-2.207-2.152a1 1 0 01.554-1.706l3.052-.443 1.382-2.764A1 1 0 0110 2z" /></svg>
+                                Work
+                            </span>
+                        </div>
+                    </td>
+                    <td>{{ record.start_time }}</td>
+                    <td>{{ record.end_time }}</td>
+                    <td>{{ record.total_work_hours }}</td>
+                    <td>NPR {{ record.total_amount|default:record.income_amount_calc|default:record.income_amount }}</td>
+                    <td>
+                        <span class="badge {% if record.status == 'paid' %}badge-success{% else %}badge-warning{% endif %} badge-outline">
+                            {{ record.get_status_display }}
+                        </span>
+                    </td>
+                    <td>NPR {{ record.rate }}</td>
+                    <td>NPR {{ record.income_amount_calc|default:record.income_amount }}</td>
+                    <td>
+                        {% if record.expense_item and record.expense_amount %}
+                        {{ record.expense_item }} (NPR {{ record.expense_amount }})
+                        {% else %}
+                        <span class="text-base-content/50">None</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        <div class="inline-flex gap-1">
+                            <a href="{% url 'jcb_record_edit' record.id %}" class="btn btn-xs btn-outline">Edit</a>
+                            <form method="post"
+                                  action="{% url 'jcb_record_delete' record.id %}"
+                                  hx-post="{% url 'jcb_record_delete' record.id %}"
+                                  hx-target="closest tr"
+                                  hx-swap="delete"
+                                  onsubmit="return confirm('Delete this JCB record? This cannot be undone.');"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-error btn-outline" aria-label="Delete JCB record {{ record.id }}">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="11" class="py-0">
+                        <div class="cf-empty">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 011-1h12a1 1 0 010 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h8a1 1 0 010 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 010 2H4a1 1 0 01-1-1z" /></svg>
+                            <p>No JCB records found for the selected filters.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

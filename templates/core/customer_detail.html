@@ -12,6 +12,16 @@
             </div>
             <div class="flex gap-2">
                 <a href="{% url 'customer_edit' customer.id %}" class="btn btn-outline">Edit Customer</a>
+                <form method="post"
+                      action="{% url 'customer_delete' customer.id %}"
+                      hx-post="{% url 'customer_delete' customer.id %}"
+                      hx-swap="none"
+                      onsubmit="return confirm('Delete customer {{ customer.name }}? Linked sales and transactions will be unassigned.');"
+                      class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="redirect_to" value="{% url 'customers' %}">
+                    <button type="submit" class="btn btn-error btn-outline">Delete Customer</button>
+                </form>
                 <a href="{% url 'customers' %}" class="btn btn-ghost">Back</a>
             </div>
         </div>

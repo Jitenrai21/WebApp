@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
-from .models import Customer, Sale, Transaction
+from .models import Customer, JCBRecord, Sale, Transaction
 from .models import RecordStatus
 
 
@@ -219,5 +219,120 @@ class SaleReceiptForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            _decorate_widget(field_name, field)
+
+
+class JCBRecordForm(forms.ModelForm):
+    class Meta:
+        model = JCBRecord
+        fields = [
+            "date",
+            "site_name",
+            "start_time",
+            "end_time",
+            "status",
+            "rate",
+            "total_amount",
+            "expense_item",
+            "expense_amount",
+        ]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "start_time": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "end_time": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "rate": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "total_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "expense_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_time = cleaned_data.get("start_time")
+        end_time = cleaned_data.get("end_time")
+        expense_item = (cleaned_data.get("expense_item") or "").strip()
+        expense_amount = cleaned_data.get("expense_amount")
+        rate = cleaned_data.get("rate")
+        total_amount = cleaned_data.get("total_amount")
+        status = cleaned_data.get("status")
+
+        has_expense_item = bool(expense_item)
+        has_expense_amount = expense_amount not in (None, "")
+        has_no_time_input = start_time in (None, "") and end_time in (None, "")
+        has_zero_time_input = (
+            start_time is not None
+            and end_time is not None
+            and Decimal(str(start_time)) == Decimal("0")
+            and Decimal(str(end_time)) == Decimal("0")
+        )
+        expense_only_mode = has_expense_item and has_expense_amount and (has_no_time_input or has_zero_time_input)
+
+        if has_expense_item and not has_expense_amount:
+            self.add_error("expense_amount", "Enter expense amount when expense item is provided.")
+        if has_expense_amount and not has_expense_item:
+            self.add_error("expense_item", "Enter expense item when expense amount is provided.")
+
+        if expense_amount is not None and expense_amount != "" and expense_amount < 0:
+            self.add_error("expense_amount", "Expense amount cannot be negative.")
+
+        # Expense-only mode: auto-fill non-expense fields so only date + expense pair is needed.
+        if expense_only_mode:
+            cleaned_data["start_time"] = Decimal("0.00")
+            cleaned_data["end_time"] = Decimal("0.00")
+            if rate in (None, ""):
+                cleaned_data["rate"] = Decimal("2000.00")
+            if status in (None, ""):
+                cleaned_data["status"] = RecordStatus.PENDING
+            if total_amount in (None, ""):
+                cleaned_data["total_amount"] = Decimal("0.00")
+            cleaned_data["expense_item"] = expense_item
+            return cleaned_data
+
+        if (start_time in (None, "")) != (end_time in (None, "")):
+            self.add_error("start_time", "Provide both start and end time together.")
+            self.add_error("end_time", "Provide both start and end time together.")
+
+        if start_time is None and end_time is None:
+            self.add_error("start_time", "Start time is required unless this is an expense-only record.")
+            self.add_error("end_time", "End time is required unless this is an expense-only record.")
+
+        if start_time is not None and end_time is not None:
+            if start_time < 0:
+                self.add_error("start_time", "Start time must be 0 or greater.")
+            if end_time < 0:
+                self.add_error("end_time", "End time must be 0 or greater.")
+
+            if end_time <= start_time:
+                self.add_error("end_time", "End time must be greater than start time.")
+
+        if total_amount is not None and total_amount < 0:
+            self.add_error("total_amount", "Total amount cannot be negative.")
+
+        if rate in (None, ""):
+            cleaned_data["rate"] = Decimal("2000.00")
+            rate = cleaned_data["rate"]
+
+        if status in (None, ""):
+            cleaned_data["status"] = RecordStatus.PENDING
+
+        if total_amount in (None, "") and start_time is not None and end_time is not None and rate is not None:
+            worked = end_time - start_time
+            if worked > 0:
+                cleaned_data["total_amount"] = (worked * rate).quantize(Decimal("0.01"))
+
+        cleaned_data["expense_item"] = expense_item
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["start_time"].required = False
+        self.fields["end_time"].required = False
+        self.fields["rate"].required = False
+        self.fields["status"].required = False
+        self.fields["total_amount"].required = False
+        if self.instance and self.instance.pk and self.instance.total_amount is None:
+            worked = self.instance.end_time - self.instance.start_time
+            if worked > 0:
+                self.initial["total_amount"] = (worked * self.instance.rate).quantize(Decimal("0.01"))
         for field_name, field in self.fields.items():
             _decorate_widget(field_name, field)

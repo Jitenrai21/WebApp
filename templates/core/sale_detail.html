@@ -12,6 +12,16 @@
             </div>
             <div class="flex gap-2">
                 <a href="{% url 'sale_edit' sale.id %}" class="btn btn-outline">Edit Sale</a>
+                <form method="post"
+                      action="{% url 'sale_delete' sale.id %}"
+                      hx-post="{% url 'sale_delete' sale.id %}"
+                      hx-swap="none"
+                      onsubmit="return confirm('Delete sale {{ sale.invoice_number }}? This cannot be undone.');"
+                      class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="redirect_to" value="{% url 'sales' %}">
+                    <button type="submit" class="btn btn-error btn-outline">Delete Sale</button>
+                </form>
                 <a href="{% url 'sales' %}" class="btn btn-ghost">Back to Sales</a>
             </div>
         </div>

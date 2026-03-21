@@ -4,6 +4,7 @@ from .models import (
     AlertNotification,
     Customer,
     CustomerPayment,
+    JCBRecord,
     PaymentAllocation,
     Sale,
     Transaction,
@@ -31,18 +32,19 @@ class TransactionAdmin(admin.ModelAdmin):
         "date",
         "customer",
         "sale",
+        "jcb_record",
         "type",
         "payment_method",
         "category",
         "amount",
     )
-    list_filter = ("type", "payment_method", "date", "category", "sale")
+    list_filter = ("type", "payment_method", "date", "category", "sale", "jcb_record")
     search_fields = (
         "customer__name",
         "category",
         "description",
     )
-    autocomplete_fields = ("customer", "sale")
+    autocomplete_fields = ("customer", "sale", "jcb_record")
     date_hierarchy = "date"
     ordering = ("-date",)
 
@@ -104,3 +106,23 @@ class PaymentAllocationAdmin(admin.ModelAdmin):
     list_display = ("customer_payment", "sale", "amount", "transaction", "created_at")
     search_fields = ("sale__invoice_number", "customer_payment__customer__name")
     autocomplete_fields = ("customer_payment", "sale", "transaction")
+
+
+@admin.register(JCBRecord)
+class JCBRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "site_name",
+        "start_time",
+        "end_time",
+        "total_work_hours",
+        "rate",
+        "total_amount",
+        "status",
+        "expense_item",
+        "expense_amount",
+    )
+    list_filter = ("status", "date")
+    search_fields = ("site_name", "expense_item")
+    date_hierarchy = "date"
+    ordering = ("-date", "-created_at")

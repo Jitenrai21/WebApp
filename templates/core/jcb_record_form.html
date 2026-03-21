@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="cf-page-header">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+                <p class="cf-page-subtitle">For expense-only entry, you can submit just Date + Expense Item + Expense Amount.</p>
+            </div>
+            <a href="{% url 'jcb_records' %}" class="btn btn-outline">Back to JCB Records</a>
+        </div>
+    </div>
+
+    <form method="post" class="cf-section p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <span>{{ form.non_field_errors|join:', ' }}</span>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_date"><span class="label-text">Date</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_site_name"><span class="label-text">Site Name</span></label>
+                {{ form.site_name }}
+                {% if form.site_name.errors %}<p class="text-error text-sm mt-1">{{ form.site_name.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_start_time"><span class="label-text">Start Time (hour)</span></label>
+                {{ form.start_time }}
+                {% if form.start_time.errors %}<p class="text-error text-sm mt-1">{{ form.start_time.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_end_time"><span class="label-text">End Time (hour)</span></label>
+                {{ form.end_time }}
+                {% if form.end_time.errors %}<p class="text-error text-sm mt-1">{{ form.end_time.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_rate"><span class="label-text">Rate (NPR / hour)</span></label>
+                {{ form.rate }}
+                {% if form.rate.errors %}<p class="text-error text-sm mt-1">{{ form.rate.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_total_amount"><span class="label-text">Total Amount (editable)</span></label>
+                {{ form.total_amount }}
+                {% if form.total_amount.errors %}<p class="text-error text-sm mt-1">{{ form.total_amount.errors|join:', ' }}</p>{% endif %}
+                <p class="text-xs text-base-content/60 mt-1">Auto-filled as Work Hours x Rate, but you can override.</p>
+            </div>
+            <div class="form-control">
+                <label class="label" for="jcb_total_preview"><span class="label-text">Total Work Time (auto)</span></label>
+                <input id="jcb_total_preview" type="text" class="input input-bordered w-full" value="0.00" readonly>
+                <p class="text-xs text-base-content/60 mt-1">Calculated as End Time minus Start Time.</p>
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_status"><span class="label-text">Status</span></label>
+                {{ form.status }}
+                {% if form.status.errors %}<p class="text-error text-sm mt-1">{{ form.status.errors|join:', ' }}</p>{% endif %}
+            </div>
+
+            <div class="md:col-span-2">
+                <div class="cf-filter-panel p-4 space-y-3">
+                    <h2 class="font-semibold">Optional Expense</h2>
+                    <p class="text-sm text-base-content/70">Expense-only mode is supported: if you fill Expense Item and Expense Amount, work fields can stay empty.</p>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="form-control">
+                            <label class="label" for="id_expense_item"><span class="label-text">Expense Item</span></label>
+                            {{ form.expense_item }}
+                            {% if form.expense_item.errors %}<p class="text-error text-sm mt-1">{{ form.expense_item.errors|join:', ' }}</p>{% endif %}
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="id_expense_amount"><span class="label-text">Expense Amount</span></label>
+                            {{ form.expense_amount }}
+                            {% if form.expense_amount.errors %}<p class="text-error text-sm mt-1">{{ form.expense_amount.errors|join:', ' }}</p>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            {% if jcb_record %}
+            <form method="post"
+                  action="{% url 'jcb_record_delete' jcb_record.id %}"
+                  hx-post="{% url 'jcb_record_delete' jcb_record.id %}"
+                  hx-swap="none"
+                  onsubmit="return confirm('Delete this JCB record? This cannot be undone.');"
+                  class="inline ml-2">
+                {% csrf_token %}
+                <input type="hidden" name="redirect_to" value="{% url 'jcb_records' %}">
+                <button type="submit" class="btn btn-error btn-outline">Delete Record</button>
+            </form>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<script>
+    (function initJcbHourPreview() {
+        const startTimeField = document.getElementById('id_start_time');
+        const endTimeField = document.getElementById('id_end_time');
+        const rateField = document.getElementById('id_rate');
+        const totalAmountField = document.getElementById('id_total_amount');
+        const previewField = document.getElementById('jcb_total_preview');
+
+        if (!startTimeField || !endTimeField || !rateField || !totalAmountField || !previewField) {
+            return;
+        }
+
+        function parseDecimal(value) {
+            const normalized = String(value || '').trim().replace(',', '.');
+            const parsed = Number.parseFloat(normalized);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        let manualTotalOverride = false;
+
+        function updatePreview() {
+            const start = parseDecimal(startTimeField.value);
+            const end = parseDecimal(endTimeField.value);
+            const rate = parseDecimal(rateField.value);
+
+            if (start === null || end === null) {
+                previewField.value = '0.00';
+                return;
+            }
+
+            const total = end - start;
+            const worked = total > 0 ? total : 0;
+            previewField.value = worked.toFixed(2);
+
+            if (!manualTotalOverride) {
+                const computedAmount = worked > 0 && rate !== null ? worked * rate : 0;
+                totalAmountField.value = computedAmount.toFixed(2);
+            }
+        }
+
+        totalAmountField.addEventListener('input', function () {
+            manualTotalOverride = true;
+        });
+        startTimeField.addEventListener('input', updatePreview);
+        endTimeField.addEventListener('input', updatePreview);
+        rateField.addEventListener('input', updatePreview);
+        updatePreview();
+    })();
+</script>
+{% endblock %}

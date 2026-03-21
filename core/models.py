@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 
 class TimeStampedModel(models.Model):
@@ -82,6 +83,13 @@ class Transaction(TimeStampedModel):
         blank=True,
         null=True,
     )
+    jcb_record = models.ForeignKey(
+        "JCBRecord",
+        on_delete=models.SET_NULL,
+        related_name="transactions",
+        blank=True,
+        null=True,
+    )
     attachment = models.FileField(upload_to="transactions/", blank=True, null=True)
 
     class Meta:
@@ -153,6 +161,54 @@ class Sale(TimeStampedModel):
         if self.due_date <= today + timedelta(days=7):
             return "upcoming"
         return "none"
+
+
+class JCBRecord(TimeStampedModel):
+    date = models.DateField(default=timezone.now)
+    site_name = models.CharField(max_length=120, blank=True, null=True)
+    start_time = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0.00"))
+    end_time = models.DecimalField(max_digits=7, decimal_places=2, default=Decimal("0.00"))
+    total_work_hours = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    status = models.CharField(
+        max_length=10,
+        choices=RecordStatus.choices,
+        default=RecordStatus.PENDING,
+    )
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=2000)
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2, blank=True, null=True)
+    expense_item = models.CharField(max_length=120, blank=True)
+    expense_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(fields=["date"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self) -> str:
+        site = self.site_name or "N/A"
+        return f"JCB {self.date} [{site}] ({self.start_time}-{self.end_time})"
+
+    @property
+    def income_amount(self):
+        if self.total_amount is not None:
+            return self.total_amount.quantize(Decimal("0.01"))
+        return (self.total_work_hours * self.rate).quantize(Decimal("0.01"))
+
+    def save(self, *args, **kwargs):
+        try:
+            worked = Decimal(str(self.end_time)) - Decimal(str(self.start_time))
+        except (InvalidOperation, TypeError, ValueError):
+            worked = Decimal("0")
+
+        if worked < 0:
+            worked = Decimal("0")
+
+        self.total_work_hours = worked.quantize(Decimal("0.01"))
+        if self.total_amount is None:
+            self.total_amount = (self.total_work_hours * self.rate).quantize(Decimal("0.01"))
+        super().save(*args, **kwargs)
 
 
 class AlertType(models.TextChoices):

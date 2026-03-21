@@ -122,6 +122,14 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{% url 'jcb_records' %}" class="{% if '/jcb-records' in request.path %}active{% endif %}">
+                            <span class="inline-flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 011-1h7a1 1 0 010 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 010 2H4a1 1 0 01-1-1zm10 3a3 3 0 100 6 3 3 0 000-6zm-8 1a1 1 0 100 2h3a1 1 0 100-2H5z" /></svg>
+                                <span>JCB Records</span>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{% url 'customers' %}" class="{% if '/customers' in request.path %}active{% endif %}">
                             <span class="inline-flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3a4 4 0 110 8 4 4 0 010-8zm-7 13a7 7 0 1114 0H3z" /></svg>
@@ -171,6 +179,7 @@
         </div>
     </main>
     {% endif %}
+    <div id="cf-toast-stack" class="pointer-events-none fixed right-4 top-4 z-[120] flex w-full max-w-sm flex-col gap-2"></div>
     <script>
         function applyRevealAnimations() {
             document.querySelectorAll('.cf-content > *:not(.htmx-indicator)').forEach((element, index) => {
@@ -201,6 +210,46 @@
 
         document.addEventListener('DOMContentLoaded', applyRevealAnimations);
         document.addEventListener('DOMContentLoaded', initCustomerAutocomplete);
+        function showToast(message, level = 'info') {
+            const stack = document.getElementById('cf-toast-stack');
+            if (!stack || !message) {
+                return;
+            }
+
+            const levelClassMap = {
+                success: 'alert-success',
+                error: 'alert-error',
+                warning: 'alert-warning',
+                info: 'alert-info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `alert ${levelClassMap[level] || levelClassMap.info} pointer-events-auto shadow-soft`;
+            toast.innerHTML = `<span>${message}</span>`;
+            stack.appendChild(toast);
+
+            window.setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-2', 'transition', 'duration-200');
+                window.setTimeout(() => toast.remove(), 220);
+            }, 3000);
+        }
+
+        document.body.addEventListener('cf-toast', (event) => {
+            const detail = event.detail || {};
+            showToast(detail.message || 'Action completed.', detail.level || 'info');
+        });
+
+        document.body.addEventListener('cf-redirect', (event) => {
+            const detail = event.detail || {};
+            if (detail.url) {
+                window.location.href = detail.url;
+            }
+        });
+
+        document.body.addEventListener('htmx:responseError', () => {
+            showToast('Request failed. Please try again.', 'error');
+        });
+
         document.body.addEventListener('htmx:afterSwap', () => {
             initCustomerAutocomplete();
             applyRevealAnimations();

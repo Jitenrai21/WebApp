@@ -59,10 +59,48 @@
         </div>
     </div>
 
+    <div class="cf-section">
+        <div class="card-body gap-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="card-title text-xl">JCB Records Summary</h2>
+                    <p class="text-sm text-base-content/70">Income, expense, and total work hours for the selected date range.</p>
+                </div>
+                <a href="{% url 'jcb_records' %}" class="btn btn-outline btn-sm">View All JCB Records</a>
+            </div>
+            <div class="grid gap-4 lg:grid-cols-3">
+                <div class="cf-section lg:col-span-2">
+                    <div class="card-body">
+                        <h3 class="card-title text-lg">JCB Income, Expense, and Hours</h3>
+                        <div class="h-64"><canvas id="jcb-summary-chart"></canvas></div>
+                    </div>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                    <div class="cf-kpi-card cf-kpi-card--income">
+                        <p class="kpi-label !mt-0">JCB Income</p>
+                        <p class="kpi-value !mt-0 text-success">NPR {{ jcb_summary.total_jcb_income }}</p>
+                        <p class="kpi-note">Income from paid JCB records</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--expense">
+                        <p class="kpi-label !mt-0">JCB Expense</p>
+                        <p class="kpi-value !mt-0 text-error">NPR {{ jcb_summary.total_jcb_expense }}</p>
+                        <p class="kpi-note">Recorded JCB operating expenses</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--sales">
+                        <p class="kpi-label !mt-0">Total Work Hours</p>
+                        <p class="kpi-value !mt-0">{{ jcb_summary.total_work_hours }} hrs</p>
+                        <p class="kpi-note">Total JCB hours in selected period</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid gap-4 xl:grid-cols-3">
         <div class="cf-table-shell">
-            <div class="card-body pb-0">
+            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="card-title">Recent Sales</h2>
+                <a href="{% url 'sales' %}" class="btn btn-outline btn-sm">View All Sales</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
@@ -104,8 +142,9 @@
         </div>
 
         <div class="cf-table-shell">
-            <div class="card-body pb-0">
+            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="card-title">Recent Cash Entries</h2>
+                <a href="{% url 'cash_entries' %}" class="btn btn-outline btn-sm">View All Cash Entries</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
@@ -139,8 +178,9 @@
         </div>
 
         <div class="cf-table-shell">
-            <div class="card-body pb-0">
+            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="card-title">New Customers</h2>
+                <a href="{% url 'customers' %}" class="btn btn-outline btn-sm">View All Customers</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
@@ -178,6 +218,8 @@
     {{ sales_trend_values|json_script:'sales-trend-values' }}
     {{ income_expense_labels|json_script:'income-expense-labels' }}
     {{ income_expense_values|json_script:'income-expense-values' }}
+    {{ jcb_summary_labels|json_script:'jcb-summary-labels' }}
+    {{ jcb_summary_values|json_script:'jcb-summary-values' }}
     {{ top_customer_labels|json_script:'top-customer-labels' }}
     {{ top_customer_values|json_script:'top-customer-values' }}
 </div>

@@ -70,6 +70,16 @@
                         <td class="text-right">
                             <a href="{% url 'customer_detail' customer.id %}" class="btn btn-xs btn-outline">View</a>
                             <a href="{% url 'customer_edit' customer.id %}" class="btn btn-xs btn-ghost">Edit</a>
+                            <form method="post"
+                                  action="{% url 'customer_delete' customer.id %}"
+                                  hx-post="{% url 'customer_delete' customer.id %}"
+                                  hx-target="closest tr"
+                                  hx-swap="delete"
+                                  onsubmit="return confirm('Delete customer {{ customer.name }}? Linked sales and transactions will be unassigned.');"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-error btn-outline" aria-label="Delete customer {{ customer.name }}">Delete</button>
+                            </form>
                         </td>
                     </tr>
                     {% empty %}

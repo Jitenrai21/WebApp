@@ -38,7 +38,19 @@
                         {% endif %}
                     </td>
                     <td class="text-right">
-                        <a href="{% url 'transaction_edit' transaction.id %}" class="btn btn-xs btn-outline">Edit</a>
+                        <div class="inline-flex gap-1">
+                            <a href="{% url 'transaction_edit' transaction.id %}" class="btn btn-xs btn-outline">Edit</a>
+                            <form method="post"
+                                  action="{% url 'transaction_delete' transaction.id %}"
+                                  hx-post="{% url 'transaction_delete' transaction.id %}"
+                                  hx-target="closest tr"
+                                  hx-swap="delete"
+                                  onsubmit="return confirm('Delete this cash entry? This cannot be undone.');"
+                                  class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-xs btn-error btn-outline" aria-label="Delete transaction {{ transaction.id }}">Delete</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
