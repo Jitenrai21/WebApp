@@ -30,6 +30,7 @@ class CustomerForm(forms.ModelForm):
             "profile_notes",
             "type",
             "opening_balance",
+            "manual_due_amount",
         ]
 
     def clean_name(self):

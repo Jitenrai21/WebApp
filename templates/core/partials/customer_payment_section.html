@@ -61,13 +61,13 @@
 
                 <div class="cf-filter-panel space-y-2 p-4">
                     <div class="flex items-center justify-between">
-                        <p class="font-semibold text-sm">Pending Sales</p>
+                        <p class="font-semibold text-sm">Pending Sales & Manual Due</p>
                         <p class="text-xs opacity-70">Choose one or more</p>
                     </div>
                     <div class="max-h-64 overflow-auto rounded-lg">
                         <div class="grid grid-cols-[auto_1fr_auto] gap-2 border-b border-base-300/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-base-content/70">
                             <span>Select</span>
-                            <span>Invoice</span>
+                            <span>Invoice / Type</span>
                             <span>Due</span>
                         </div>
                         <div class="divide-y divide-base-300/40">
@@ -80,15 +80,26 @@
                             <span class="font-semibold">NPR {{ row.due_amount }}</span>
                         </label>
                         {% empty %}
-                        <p class="p-4 text-sm opacity-70">No pending sales available for allocation.</p>
                         {% endfor %}
+                        {% if manual_due_amount > 0 %}
+                        <label class="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 text-sm hover:bg-base-200/20 transition-colors bg-warning/5 border-b-2 border-warning/20">
+                            <span>
+                                <input type="checkbox" name="allocate_manual_due" class="checkbox checkbox-warning border-base-300 scale-105">
+                            </span>
+                            <span class="font-semibold text-warning">Manual Due (Legacy)</span>
+                            <span class="font-semibold text-warning">NPR {{ manual_due_amount }}</span>
+                        </label>
+                        {% endif %}
+                        {% if not pending_sales_rows and manual_due_amount <= 0 %}
+                        <p class="p-4 text-sm opacity-70">No pending sales or manual due available for allocation.</p>
+                        {% endif %}
                         </div>
                     </div>
                 </div>
 
                 <div class="xl:col-span-2 flex items-center justify-end gap-3">
                     <p class="text-xs opacity-70 hidden sm:block">Allocation follows invoice order.</p>
-                    <button type="submit" class="btn btn-primary" {% if not pending_sales_rows %}disabled{% endif %}>Allocate Payment</button>
+                    <button type="submit" class="btn btn-primary" {% if not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
                 </div>
             </form>
         </div>

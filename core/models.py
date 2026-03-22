@@ -50,6 +50,7 @@ class Customer(TimeStampedModel):
     )
     opening_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     credit_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    manual_due_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="Manually added due amount for legacy/existing dues")
 
     class Meta:
         ordering = ["name"]

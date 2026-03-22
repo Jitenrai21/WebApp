@@ -36,6 +36,7 @@
                     <p><span class="font-semibold">Phone:</span> {{ customer.phone|default:'-' }}</p>
                     <p><span class="font-semibold">Credit Terms:</span> {{ customer.credit_terms|default:'-' }}</p>
                     <p><span class="font-semibold">Opening Balance:</span> NPR {{ customer.opening_balance }}</p>
+                    <p><span class="font-semibold">Manual Due Amount:</span> <span class="{% if customer.manual_due_amount > 0 %}text-error font-semibold{% endif %}">NPR {{ customer.manual_due_amount }}</span></p>
                     <p class="md:col-span-2"><span class="font-semibold">Address:</span> {{ customer.address|default:'-' }}</p>
                     <p class="md:col-span-2"><span class="font-semibold">Notes:</span> {{ customer.profile_notes|default:'-' }}</p>
                 </div>

@@ -37,25 +37,35 @@
         </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-3">
-        <div class="cf-section xl:col-span-2">
-            <div class="card-body">
-                <h2 class="card-title text-xl">Sales Trend</h2>
-                <div class="h-72"><canvas id="sales-trend-chart"></canvas></div>
-            </div>
-        </div>
-        <div class="cf-section">
-            <div class="card-body">
-                <h2 class="card-title text-xl">Income vs Expense</h2>
-                <div class="h-72"><canvas id="income-expense-chart"></canvas></div>
+    <div class="cf-section">
+        <div class="card-body">
+            <h2 class="card-title text-xl">Sales Trend</h2>
+            <div class="h-72 cf-chart-shell">
+                <div id="sales-trend-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Sales trend chart"></div>
+                <p class="sr-only">Sales trend chart showing period-over-period movement with high and low markers.</p>
             </div>
         </div>
     </div>
 
-    <div class="cf-section">
-        <div class="card-body">
-            <h2 class="card-title text-xl">Top Customers by Sales</h2>
-            <div class="h-72"><canvas id="top-customers-chart"></canvas></div>
+    <div class="grid gap-4 lg:grid-cols-2">
+        <div class="cf-section">
+            <div class="card-body">
+                <h2 class="card-title text-xl">Income vs Expense</h2>
+                <div class="h-72 cf-chart-shell">
+                    <div id="income-expense-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Income versus expense chart"></div>
+                    <p class="sr-only">Income versus expense comparison chart with interactive legend toggles.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-section">
+            <div class="card-body">
+                <h2 class="card-title text-xl">Top Customers by Sales</h2>
+                <div class="h-72 cf-chart-shell">
+                    <div id="top-customers-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Top customers by sales chart"></div>
+                    <p class="sr-only">Horizontal ranking chart of top customers and their sales contributions.</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -72,7 +82,10 @@
                 <div class="cf-section lg:col-span-2">
                     <div class="card-body">
                         <h3 class="card-title text-lg">JCB Income, Expense, and Hours</h3>
-                        <div class="h-64"><canvas id="jcb-summary-chart"></canvas></div>
+                        <div class="h-64 cf-chart-shell">
+                            <div id="jcb-summary-chart" class="h-full w-full" role="img" tabindex="0" aria-label="JCB summary chart"></div>
+                            <p class="sr-only">JCB summary chart combining income, expense, and total work hours.</p>
+                        </div>
                     </div>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">

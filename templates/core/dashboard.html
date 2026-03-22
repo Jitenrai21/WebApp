@@ -67,7 +67,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
     let dashboardCharts = {
         salesTrend: null,
@@ -75,6 +75,41 @@
         topCustomers: null,
         jcbSummary: null
     };
+    let chartResizeObservers = [];
+
+    const chartPalette = {
+        ink: '#183153',
+        slate: '#3E5C76',
+        blue: '#1D70B8',
+        cyan: '#3BA99C',
+        amber: '#E09F3E',
+        coral: '#E36464',
+        mint: '#6CC4A1',
+        violet: '#7A7EE6'
+    };
+
+    function injectChartPolishStyles() {
+        if (document.getElementById('cf-chart-polish-styles')) {
+            return;
+        }
+        const style = document.createElement('style');
+        style.id = 'cf-chart-polish-styles';
+        style.textContent = `
+            .cf-chart-shell {
+                opacity: 0;
+                transform: translateY(10px);
+                transition: opacity 380ms ease, transform 380ms ease, box-shadow 220ms ease;
+            }
+            .cf-chart-shell.cf-chart-shell--ready {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            .cf-chart-shell:hover {
+                box-shadow: 0 14px 30px -20px rgba(20, 34, 56, 0.35);
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
     function readJsonScript(id) {
         const element = document.getElementById(id);
@@ -88,7 +123,53 @@
         }
     }
 
+    function numberFrom(value) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function cleanSeries(values) {
+        if (!Array.isArray(values)) {
+            return [];
+        }
+        return values.map((value) => numberFrom(value));
+    }
+
+    function formatNpr(value) {
+        return `NPR ${numberFrom(value).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    }
+
+    function formatCompact(value) {
+        return new Intl.NumberFormat('en-US', {
+            notation: 'compact',
+            compactDisplay: 'short',
+            maximumFractionDigits: 1
+        }).format(numberFrom(value));
+    }
+
+    function attachResizeObserver(chart, element) {
+        if (!chart || !element || !window.ResizeObserver) {
+            return;
+        }
+        const observer = new ResizeObserver(() => {
+            chart.resize();
+        });
+        observer.observe(element);
+        chartResizeObservers.push(observer);
+    }
+
+    function registerChart(key, instance, element) {
+        dashboardCharts[key] = instance;
+        attachResizeObserver(instance, element);
+        const shell = element.closest('.cf-chart-shell');
+        if (shell) {
+            requestAnimationFrame(() => shell.classList.add('cf-chart-shell--ready'));
+        }
+    }
+
     function destroyDashboardCharts() {
+        chartResizeObservers.forEach((observer) => observer.disconnect());
+        chartResizeObservers = [];
         Object.keys(dashboardCharts).forEach((key) => {
             if (dashboardCharts[key]) {
                 dashboardCharts[key].destroy();
@@ -97,19 +178,74 @@
         });
     }
 
+    function sanitizeTopCustomers(labels, values) {
+        const pairs = (labels || []).map((label, index) => ({
+            label,
+            value: numberFrom(values[index])
+        }));
+        return pairs.filter((item) => item.label && item.value > 0).sort((a, b) => b.value - a.value).slice(0, 8);
+    }
+
+    function splitIncomeExpense(labels, values) {
+        const normalized = (labels || []).map((label, index) => ({
+            label,
+            value: numberFrom(values[index])
+        }));
+        const income = [];
+        const expense = [];
+
+        normalized.forEach((item) => {
+            const isIncome = /income/i.test(String(item.label));
+            const isExpense = /expense/i.test(String(item.label));
+            income.push(isIncome ? item.value : 0);
+            expense.push(isExpense ? item.value : 0);
+        });
+
+        if (!income.some(Boolean) && !expense.some(Boolean)) {
+            return {
+                income: normalized.map((item) => item.value),
+                expense: normalized.map(() => 0)
+            };
+        }
+
+        return { income, expense };
+    }
+
+    function splitJcbSeries(labels, values) {
+        const income = [];
+        const expense = [];
+        const hours = [];
+
+        (labels || []).forEach((label, index) => {
+            const value = numberFrom(values[index]);
+            const text = String(label).toLowerCase();
+            income.push(text.includes('income') ? value : null);
+            expense.push(text.includes('expense') ? value : null);
+            hours.push(text.includes('hour') ? value : null);
+        });
+
+        if (!hours.some((value) => value !== null)) {
+            hours.splice(0, hours.length, ...(values || []).map(() => null));
+        }
+
+        return { income, expense, hours };
+    }
+
     function initDashboardCharts() {
-        if (!window.Chart) {
+        if (!window.echarts) {
             return;
         }
 
+        injectChartPolishStyles();
+
         const salesTrendLabels = readJsonScript('sales-trend-labels');
-        const salesTrendValues = readJsonScript('sales-trend-values');
+        const salesTrendValues = cleanSeries(readJsonScript('sales-trend-values'));
         const incomeExpenseLabels = readJsonScript('income-expense-labels');
-        const incomeExpenseValues = readJsonScript('income-expense-values');
+        const incomeExpenseValues = cleanSeries(readJsonScript('income-expense-values'));
         const jcbSummaryLabels = readJsonScript('jcb-summary-labels');
-        const jcbSummaryValues = readJsonScript('jcb-summary-values');
+        const jcbSummaryValues = cleanSeries(readJsonScript('jcb-summary-values'));
         const topCustomerLabels = readJsonScript('top-customer-labels');
-        const topCustomerValues = readJsonScript('top-customer-values');
+        const topCustomerValues = cleanSeries(readJsonScript('top-customer-values'));
 
         const trendCanvas = document.getElementById('sales-trend-chart');
         const pieCanvas = document.getElementById('income-expense-chart');
@@ -119,92 +255,308 @@
         destroyDashboardCharts();
 
         if (trendCanvas && salesTrendLabels && salesTrendValues) {
-            dashboardCharts.salesTrend = new Chart(trendCanvas, {
-                type: 'line',
-                data: {
-                    labels: salesTrendLabels,
-                    datasets: [{
-                        label: 'Sales',
-                        data: salesTrendValues,
-                        borderColor: '#4A628A',
-                        backgroundColor: 'rgba(122, 178, 211, 0.28)',
-                        tension: 0.3,
-                        fill: true
-                    }]
+            const salesChart = echarts.init(trendCanvas, null, { renderer: 'canvas' });
+            const showZoom = salesTrendLabels.length > 8;
+            salesChart.setOption({
+                color: [chartPalette.blue],
+                animationDuration: 900,
+                grid: { left: 18, right: 50, top: 30, bottom: showZoom ? 56 : 24, containLabel: true },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    borderWidth: 0,
+                    textStyle: { color: '#F8FAFC' },
+                    formatter(params) {
+                        const point = params[0];
+                        const idx = point.dataIndex;
+                        const current = numberFrom(point.value);
+                        const previous = idx > 0 ? numberFrom(salesTrendValues[idx - 1]) : 0;
+                        const delta = current - previous;
+                        const deltaLabel = idx > 0 ? `${delta >= 0 ? '+' : ''}${formatNpr(delta)}` : 'N/A';
+                        return `${point.axisValue}<br/>Sales: ${formatNpr(current)}<br/>PoP Change: ${deltaLabel}`;
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: salesTrendLabels,
+                    axisLine: { lineStyle: { color: '#D4DFEA' } },
+                    axisLabel: { color: '#516178' }
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } },
+                    axisLabel: { color: '#516178', formatter: (value) => formatCompact(value) }
+                },
+                dataZoom: showZoom ? [
+                    { type: 'inside', start: 0, end: 100 },
+                    { type: 'slider', height: 14, bottom: 10, borderColor: 'transparent', fillerColor: 'rgba(29, 112, 184, 0.2)' }
+                ] : [],
+                series: [{
+                    name: 'Sales',
+                    type: 'line',
+                    smooth: 0.42,
+                    symbol: 'circle',
+                    symbolSize: 7,
+                    lineStyle: {
+                        width: 4,
+                        color: chartPalette.blue,
+                        shadowColor: 'rgba(29, 112, 184, 0.28)',
+                        shadowBlur: 16,
+                        shadowOffsetY: 7
+                    },
+                    itemStyle: { color: '#FFFFFF', borderColor: chartPalette.blue, borderWidth: 2 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(29, 112, 184, 0.34)' },
+                            { offset: 1, color: 'rgba(59, 169, 156, 0.06)' }
+                        ])
+                    },
+                    markPoint: {
+                        symbolSize: 42,
+                        itemStyle: { color: '#fff', borderColor: chartPalette.coral, borderWidth: 2 },
+                        label: { color: chartPalette.ink, fontWeight: 700, formatter: '{b}' },
+                        data: [{ type: 'max', name: 'Max' }, { type: 'min', name: 'Min' }]
+                    },
+                    markLine: {
+                        symbol: 'none',
+                        lineStyle: { type: 'dashed', color: chartPalette.amber },
+                        label: { color: chartPalette.ink, formatter: 'Avg {c}' },
+                        data: [{ type: 'average', name: 'Avg' }]
+                    },
+                    data: salesTrendValues
+                }]
             });
+            registerChart('salesTrend', salesChart, trendCanvas);
         }
 
         if (pieCanvas && incomeExpenseLabels && incomeExpenseValues) {
-            dashboardCharts.incomeExpense = new Chart(pieCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: incomeExpenseLabels,
-                    datasets: [{
-                        data: incomeExpenseValues,
-                        backgroundColor: ['#4A628A', '#7AB2D3']
-                    }]
+            const { income, expense } = splitIncomeExpense(incomeExpenseLabels, incomeExpenseValues);
+            const barChart = echarts.init(pieCanvas, null, { renderer: 'canvas' });
+            barChart.setOption({
+                animationDuration: 820,
+                color: [chartPalette.mint, chartPalette.coral],
+                legend: {
+                    top: 0,
+                    textStyle: { color: '#31445F' },
+                    selectedMode: true
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    borderWidth: 0,
+                    textStyle: { color: '#F8FAFC' },
+                    formatter(params) {
+                        const incomeValue = numberFrom(params.find((item) => item.seriesName === 'Income')?.value);
+                        const expenseValue = numberFrom(params.find((item) => item.seriesName === 'Expense')?.value);
+                        const net = incomeValue - expenseValue;
+                        return `${params[0].axisValue}<br/>Income: ${formatNpr(incomeValue)}<br/>Expense: ${formatNpr(expenseValue)}<br/>Net: ${formatNpr(net)}`;
+                    }
+                },
+                grid: { left: 18, right: 18, top: 42, bottom: 22, containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: incomeExpenseLabels,
+                    axisLine: { lineStyle: { color: '#D4DFEA' } },
+                    axisLabel: { color: '#516178' }
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } },
+                    axisLabel: { color: '#516178', formatter: (value) => formatCompact(value) }
+                },
+                series: [
+                    {
+                        name: 'Income',
+                        type: 'bar',
+                        barMaxWidth: 28,
+                        itemStyle: { borderRadius: [8, 8, 0, 0] },
+                        emphasis: { focus: 'series' },
+                        data: income
+                    },
+                    {
+                        name: 'Expense',
+                        type: 'bar',
+                        barMaxWidth: 28,
+                        itemStyle: { borderRadius: [8, 8, 0, 0] },
+                        emphasis: { focus: 'series' },
+                        data: expense
+                    }
+                ]
             });
+            registerChart('incomeExpense', barChart, pieCanvas);
         }
 
         if (topCanvas && topCustomerLabels && topCustomerValues) {
-            dashboardCharts.topCustomers = new Chart(topCanvas, {
-                type: 'bar',
-                data: {
-                    labels: topCustomerLabels,
-                    datasets: [{
-                        label: 'Sales',
-                        data: topCustomerValues,
-                        backgroundColor: '#7AB2D3'
-                    }]
+            const ranked = sanitizeTopCustomers(topCustomerLabels, topCustomerValues);
+            const labels = ranked.map((item) => item.label);
+            const values = ranked.map((item) => item.value);
+            const total = values.reduce((sum, value) => sum + value, 0);
+
+            const topCustomersChart = echarts.init(topCanvas, null, { renderer: 'canvas' });
+            topCustomersChart.setOption({
+                animationDuration: 960,
+                grid: { left: 120, right: 24, top: 24, bottom: 22 },
+                xAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#516178', formatter: (value) => formatCompact(value) },
+                    splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
+                yAxis: {
+                    type: 'category',
+                    inverse: true,
+                    data: labels,
+                    axisLabel: {
+                        color: '#31445F'
+                    },
+                    axisTick: { show: false },
+                    axisLine: { show: false }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    borderWidth: 0,
+                    textStyle: { color: '#F8FAFC' },
+                    formatter(param) {
+                        const value = numberFrom(param.value);
+                        const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                        return `${param.name}<br/>Sales: ${formatNpr(value)}<br/>Contribution: ${pct}%`;
+                    }
+                },
+                series: [{
+                    type: 'bar',
+                    data: values.map((value, index) => ({
+                        value,
+                        itemStyle: {
+                            borderRadius: [0, 10, 10, 0],
+                            color: index < 3
+                                ? new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                                    { offset: 0, color: '#1D70B8' },
+                                    { offset: 1, color: '#3BA99C' }
+                                ])
+                                : new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                                    { offset: 0, color: '#8AA8C8' },
+                                    { offset: 1, color: '#C3D2E3' }
+                                ])
+                        }
+                    })),
+                    barMaxWidth: 20,
+                    label: {
+                        show: true,
+                        position: 'right',
+                        color: '#31445F',
+                        formatter: ({ value }) => formatCompact(value)
+                    },
+                    emphasis: { focus: 'series' }
+                }]
             });
+            registerChart('topCustomers', topCustomersChart, topCanvas);
         }
 
         if (jcbSummaryCanvas && jcbSummaryLabels && jcbSummaryValues) {
-            dashboardCharts.jcbSummary = new Chart(jcbSummaryCanvas, {
-                type: 'bar',
-                data: {
-                    labels: jcbSummaryLabels,
-                    datasets: [{
-                        label: 'JCB Summary',
-                        data: jcbSummaryValues,
-                        backgroundColor: ['#4A628A', '#7AB2D3', '#B9E5E8'],
-                        borderRadius: 8,
-                        maxBarThickness: 56
-                    }]
+            const jcbSeries = splitJcbSeries(jcbSummaryLabels, jcbSummaryValues);
+            const hoursTarget = Math.max(0, ...jcbSeries.hours.map((value) => value || 0)) * 0.8;
+
+            const jcbChart = echarts.init(jcbSummaryCanvas, null, { renderer: 'canvas' });
+            jcbChart.setOption({
+                animationDuration: 920,
+                color: [chartPalette.mint, chartPalette.coral, chartPalette.violet],
+                legend: {
+                    top: 0,
+                    textStyle: { color: '#31445F' }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }
-                        }
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    borderWidth: 0,
+                    textStyle: { color: '#F8FAFC' },
+                    formatter(params) {
+                        const lines = [params[0].axisValue];
+                        params.forEach((item) => {
+                            if (item.seriesName === 'Hours') {
+                                lines.push(`${item.marker}${item.seriesName}: ${numberFrom(item.value).toLocaleString('en-US')} hrs`);
+                            } else {
+                                lines.push(`${item.marker}${item.seriesName}: ${formatNpr(item.value)}`);
+                            }
+                        });
+                        return lines.join('<br/>');
                     }
-                }
+                },
+                grid: { left: 18, right: 26, top: 48, bottom: 22, containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: jcbSummaryLabels,
+                    axisLine: { lineStyle: { color: '#D4DFEA' } },
+                    axisLabel: { color: '#516178' }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'NPR',
+                        axisLabel: { color: '#516178', formatter: (value) => formatCompact(value) },
+                        splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } }
+                    },
+                    {
+                        type: 'value',
+                        name: 'Hours',
+                        axisLabel: { color: '#516178' },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: [
+                    {
+                        name: 'Income',
+                        type: 'bar',
+                        yAxisIndex: 0,
+                        barMaxWidth: 26,
+                        itemStyle: { borderRadius: [8, 8, 0, 0] },
+                        data: jcbSeries.income
+                    },
+                    {
+                        name: 'Expense',
+                        type: 'bar',
+                        yAxisIndex: 0,
+                        barMaxWidth: 26,
+                        itemStyle: { borderRadius: [8, 8, 0, 0] },
+                        data: jcbSeries.expense
+                    },
+                    {
+                        name: 'Hours',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        smooth: 0.38,
+                        symbolSize: 8,
+                        lineStyle: { width: 3, shadowBlur: 12, shadowColor: 'rgba(122, 126, 230, 0.28)' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(122, 126, 230, 0.24)' },
+                                { offset: 1, color: 'rgba(122, 126, 230, 0.04)' }
+                            ])
+                        },
+                        markLine: {
+                            symbol: 'none',
+                            lineStyle: { type: 'dashed', color: chartPalette.amber },
+                            label: { formatter: 'Target Hours' },
+                            data: hoursTarget > 0 ? [{ yAxis: hoursTarget }] : []
+                        },
+                        data: jcbSeries.hours
+                    }
+                ]
             });
+            registerChart('jcbSummary', jcbChart, jcbSummaryCanvas);
         }
     }
 
     document.addEventListener('DOMContentLoaded', initDashboardCharts);
+    window.addEventListener('resize', () => {
+        Object.values(dashboardCharts).forEach((chart) => {
+            if (chart) {
+                chart.resize();
+            }
+        });
+    });
     document.body.addEventListener('htmx:afterSwap', (event) => {
         if (event.target && event.target.id === 'dashboard-content') {
             initDashboardCharts();

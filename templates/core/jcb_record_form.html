@@ -45,6 +45,11 @@
                 {% if form.end_time.errors %}<p class="text-error text-sm mt-1">{{ form.end_time.errors|join:', ' }}</p>{% endif %}
             </div>
             <div class="form-control">
+                <label class="label" for="jcb_total_preview"><span class="label-text">Total Work Time (auto)</span></label>
+                <input id="jcb_total_preview" type="text" class="input input-bordered w-full" value="0.00" readonly>
+                <p class="text-xs text-base-content/60 mt-1">Calculated as End Time minus Start Time.</p>
+            </div>
+            <div class="form-control">
                 <label class="label" for="id_rate"><span class="label-text">Rate (NPR / hour)</span></label>
                 {{ form.rate }}
                 {% if form.rate.errors %}<p class="text-error text-sm mt-1">{{ form.rate.errors|join:', ' }}</p>{% endif %}
@@ -54,11 +59,6 @@
                 {{ form.total_amount }}
                 {% if form.total_amount.errors %}<p class="text-error text-sm mt-1">{{ form.total_amount.errors|join:', ' }}</p>{% endif %}
                 <p class="text-xs text-base-content/60 mt-1">Auto-filled as Work Hours x Rate, but you can override.</p>
-            </div>
-            <div class="form-control">
-                <label class="label" for="jcb_total_preview"><span class="label-text">Total Work Time (auto)</span></label>
-                <input id="jcb_total_preview" type="text" class="input input-bordered w-full" value="0.00" readonly>
-                <p class="text-xs text-base-content/60 mt-1">Calculated as End Time minus Start Time.</p>
             </div>
             <div class="form-control">
                 <label class="label" for="id_status"><span class="label-text">Status</span></label>

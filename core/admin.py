@@ -19,11 +19,17 @@ class CustomerAdmin(admin.ModelAdmin):
         "type",
         "opening_balance",
         "credit_balance",
+        "manual_due_amount",
         "created_at",
     )
     list_filter = ("type", "created_at")
     search_fields = ("name", "phone", "address", "credit_terms")
     ordering = ("name",)
+    fieldsets = (
+        ("Basic Information", {"fields": ("name", "phone", "address", "type")}),
+        ("Financial Information", {"fields": ("opening_balance", "credit_balance", "credit_terms", "manual_due_amount")}),
+        ("Additional Notes", {"fields": ("profile_notes",)}),
+    )
 
 
 @admin.register(Transaction)

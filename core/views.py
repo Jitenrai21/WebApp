@@ -180,6 +180,12 @@ def _dashboard_context(date_from="", date_to=""):
 		((sale.total_amount - sale.received_total) for sale in sales_rows),
 		Decimal("0.00"),
 	)
+	# Include manual due amounts from all customers
+	manual_due_total = sum(
+		(customer.manual_due_amount for customer in Customer.objects.filter(manual_due_amount__gt=0)),
+		Decimal("0.00"),
+	)
+	outstanding_receivables += manual_due_total
 	kpi_income_expense = transactions_queryset.aggregate(
 		total_income=Coalesce(
 			Sum("amount", filter=Q(type=TransactionType.INCOME)),
@@ -491,6 +497,9 @@ def _customer_payment_context(customer):
 	due_amount = payment_totals["total_sales"] - payment_totals["total_paid"]
 	if due_amount < 0:
 		due_amount = Decimal("0.00")
+	
+	# Add manual due amount if set
+	due_amount += customer.manual_due_amount
 
 	return {
 		"sales": sales,
@@ -499,6 +508,7 @@ def _customer_payment_context(customer):
 		"pending_sales_rows": pending_sales_rows,
 		"total_payment": payment_totals["total_paid"],
 		"due_amount": due_amount,
+		"manual_due_amount": customer.manual_due_amount,
 		"payment_method_choices": PaymentMethod.choices,
 		"today": timezone.localdate(),
 	}
@@ -1066,6 +1076,7 @@ def customer_allocate_payment(request, pk):
 	payment_method = request.POST.get("payment_method", PaymentMethod.CASH).strip()
 	sale_ids = request.POST.getlist("sale_ids")
 	notes = request.POST.get("notes", "").strip()
+	allocate_manual_due = request.POST.get("allocate_manual_due") == "on"
 
 	try:
 		payment_amount = Decimal(raw_amount)
@@ -1081,14 +1092,17 @@ def customer_allocate_payment(request, pk):
 		messages.error(request, message)
 		return redirect("customer_detail", pk=customer.pk)
 
-	if not sale_ids:
-		message = "Select at least one pending sale to allocate payment."
+	if not sale_ids and not allocate_manual_due:
+		message = "Select at least one pending sale or manual due to allocate payment."
 		if request.headers.get("HX-Request"):
 			context = {"customer": customer, "allocation_error": message}
 			context.update(_customer_payment_context(customer))
 			return render(request, "core/partials/customer_payment_section.html", context)
 		messages.error(request, message)
 		return redirect("customer_detail", pk=customer.pk)
+
+	if allocate_manual_due and customer.manual_due_amount <= 0:
+		allocate_manual_due = False
 
 	if payment_method not in dict(PaymentMethod.choices):
 		payment_method = PaymentMethod.CASH
@@ -1107,8 +1121,8 @@ def customer_allocate_payment(request, pk):
 			.order_by("date", "created_at", "id")
 		)
 
-		if not selected_sales:
-			message = "No eligible pending sales were found for allocation."
+		if not selected_sales and not allocate_manual_due:
+			message = "No eligible pending sales or manual due found for allocation."
 			if request.headers.get("HX-Request"):
 				context = {"customer": customer, "allocation_error": message}
 				context.update(_customer_payment_context(customer))
@@ -1170,13 +1184,29 @@ def customer_allocate_payment(request, pk):
 			else:
 				partial_count += 1
 
+		# Handle manually added due amounts
+		manual_due_to_allocate = allocate_manual_due
+		manual_due_amount_before = customer.manual_due_amount
+
+		if manual_due_to_allocate and remaining_payment > 0 and customer.manual_due_amount > 0:
+			# Allocate remaining payment to manual due amount
+			allocate_to_manual_due = min(remaining_payment, customer.manual_due_amount)
+			customer.manual_due_amount -= allocate_to_manual_due
+			remaining_payment -= allocate_to_manual_due
+			allocated_total += allocate_to_manual_due
+
 		customer_payment.allocated_amount = allocated_total
 		customer_payment.unallocated_amount = remaining_payment
 		customer_payment.save(update_fields=["allocated_amount", "unallocated_amount", "updated_at"])
 
+		if manual_due_to_allocate and customer.manual_due_amount < manual_due_amount_before:
+			customer.save(update_fields=["manual_due_amount", "updated_at"])
+
 		if remaining_payment > 0:
 			customer.credit_balance = customer.credit_balance + remaining_payment
 			customer.save(update_fields=["credit_balance", "updated_at"])
+		else:
+			customer.save()
 
 	summary_text = (
 		f"Payment allocated: NPR {allocated_total}. "

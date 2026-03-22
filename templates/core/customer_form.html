@@ -47,6 +47,12 @@
                 {{ form.opening_balance }}
                 {% if form.opening_balance.errors %}<p class="text-error text-sm mt-1">{{ form.opening_balance.errors|join:', ' }}</p>{% endif %}
             </div>
+            <div class="form-control">
+                <label class="label" for="id_manual_due_amount"><span class="label-text">Manual Due Amount</span></label>
+                {{ form.manual_due_amount }}
+                <p class="text-xs text-base-content/60 mt-1">Legacy or existing dues to add manually</p>
+                {% if form.manual_due_amount.errors %}<p class="text-error text-sm mt-1">{{ form.manual_due_amount.errors|join:', ' }}</p>{% endif %}
+            </div>
             <div class="form-control md:col-span-2">
                 <label class="label" for="id_credit_terms"><span class="label-text">Credit Terms</span></label>
                 {{ form.credit_terms }}
