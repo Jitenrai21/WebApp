@@ -131,6 +131,46 @@
         </div>
     </div>
     
+    <div class="cf-section">
+        <div class="card-body gap-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="card-title text-xl">Tipper Expense vs Value Added</h2>
+                    <p class="text-sm text-base-content/70">Overall total comparison for tipper records in the selected date range.</p>
+                </div>
+                <a href="{% url 'tipper_records' %}" class="btn btn-outline btn-sm">View All Tipper Records</a>
+            </div>
+            <div class="grid gap-4 lg:grid-cols-3">
+                <div class="cf-section lg:col-span-2">
+                    <div class="card-body">
+                        <h3 class="card-title text-lg">Tipper Totals Summary</h3>
+                        <div class="h-64 cf-chart-shell">
+                            <div id="tipper-summary-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Tipper expense versus value added chart"></div>
+                            <p class="sr-only">Bar chart comparing overall tipper expense and value added totals.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                    <div class="cf-kpi-card cf-kpi-card--expense">
+                        <p class="kpi-label !mt-0">Tipper Expense</p>
+                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ tipper_summary.total_expense }}">NPR {{ tipper_summary.total_expense }}</p>
+                        <p class="kpi-note">Total expense from tipper records</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--income">
+                        <p class="kpi-label !mt-0">Value Added</p>
+                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ tipper_summary.total_value_added }}">NPR {{ tipper_summary.total_value_added }}</p>
+                        <p class="kpi-note">Total value-added from tipper records</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--sales">
+                        <p class="kpi-label !mt-0">Net Value</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ tipper_summary.net_value }}">NPR {{ tipper_summary.net_value }}</p>
+                        <p class="kpi-note">Value Added minus Expense</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid gap-4 xl:grid-cols-3">
         <div class="cf-table-shell">
             <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -261,4 +301,6 @@
     {{ category_expense_values|json_script:'category-expense-values' }}
     {{ category_income_labels|json_script:'category-income-labels' }}
     {{ category_income_values|json_script:'category-income-values' }}
+    {{ tipper_summary_labels|json_script:'tipper-summary-labels' }}
+    {{ tipper_summary_values|json_script:'tipper-summary-values' }}
 </div>

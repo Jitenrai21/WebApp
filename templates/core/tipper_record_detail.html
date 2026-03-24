@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Tipper Record {{ tipper_record.id }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="cf-page-header">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">Tipper Record #{{ tipper_record.id }}</h1>
+                <p class="cf-page-subtitle">Detailed tipper entry for expense or value-added activity.</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'tipper_record_edit' tipper_record.id %}" class="btn btn-outline">Edit Record</a>
+                <a href="{% url 'tipper_records' %}" class="btn btn-ghost">Back to Tipper Records</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-3">
+        <div class="cf-section lg:col-span-2">
+            <div class="card-body space-y-4">
+                <h2 class="card-title text-xl">Tipper Record Information</h2>
+                <div class="grid gap-3 text-sm md:grid-cols-2">
+                    <p><span class="font-semibold">Date:</span> {{ tipper_record.date }}</p>
+                    <p><span class="font-semibold">Item:</span> {{ tipper_record.item.name }}</p>
+                    <p>
+                        <span class="font-semibold">Type:</span>
+                        <span class="badge {% if tipper_record.record_type == 'expense' %}badge-error{% else %}badge-success{% endif %} badge-outline ml-1">
+                            {{ tipper_record.get_record_type_display }}
+                        </span>
+                    </p>
+                    <p><span class="font-semibold">Amount:</span> NPR {{ tipper_record.amount }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid gap-4">
+            <div class="cf-section">
+                <div class="card-body">
+                    <p class="text-sm text-base-content/60">Created</p>
+                    <p class="text-lg font-semibold">{{ tipper_record.created_at|date:'Y-m-d H:i' }}</p>
+                </div>
+            </div>
+            <div class="cf-section">
+                <div class="card-body">
+                    <p class="text-sm text-base-content/60">Last Updated</p>
+                    <p class="text-lg font-semibold">{{ tipper_record.updated_at|date:'Y-m-d H:i' }}</p>
+                </div>
+            </div>
+            <div class="cf-section">
+                <div class="card-body">
+                    <form method="post" action="{% url 'tipper_record_delete' tipper_record.id %}" onsubmit="return confirm('Delete this tipper record? This cannot be undone.');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-error btn-outline w-full">Delete Record</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

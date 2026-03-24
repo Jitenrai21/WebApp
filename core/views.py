@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import transaction as db_transaction
 from django.db.models import Case, CharField, DecimalField, ExpressionWrapper, F, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
@@ -12,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 
-from .forms import CustomerForm, JCBRecordForm, SaleForm, SaleReceiptForm, TransactionForm
+from .forms import CustomerForm, JCBRecordForm, SaleForm, SaleReceiptForm, TipperRecordForm, TransactionForm
 from .models import (
 	AlertNotification,
 	AlertSource,
@@ -24,6 +25,9 @@ from .models import (
 	PaymentMethod,
 	RecordStatus,
 	Sale,
+	TipperItem,
+	TipperRecord,
+	TipperRecordType,
 	Transaction,
 	TransactionCategory,
 	TransactionType,
@@ -179,12 +183,15 @@ def _dashboard_context(date_from="", date_to=""):
 	sales_queryset = _dashboard_base_sales_queryset(date_from, date_to)
 	transactions_queryset = Transaction.objects.select_related("customer")
 	jcb_queryset = JCBRecord.objects.all()
+	tipper_queryset = TipperRecord.objects.select_related("item")
 	if date_from:
 		transactions_queryset = transactions_queryset.filter(date__gte=date_from)
 		jcb_queryset = jcb_queryset.filter(date__gte=date_from)
+		tipper_queryset = tipper_queryset.filter(date__gte=date_from)
 	if date_to:
 		transactions_queryset = transactions_queryset.filter(date__lte=date_to)
 		jcb_queryset = jcb_queryset.filter(date__lte=date_to)
+		tipper_queryset = tipper_queryset.filter(date__lte=date_to)
 
 	kpi_sales = sales_queryset.aggregate(
 		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
@@ -304,6 +311,23 @@ def _dashboard_context(date_from="", date_to=""):
 	category_income_labels = [row["category__name"] or "Uncategorized" for row in income_by_category]
 	category_income_values = [float(row["total"]) for row in income_by_category]
 
+	tipper_summary = tipper_queryset.aggregate(
+		total_expense=Coalesce(
+			Sum("amount", filter=Q(record_type=TipperRecordType.EXPENSE)),
+			Value(Decimal("0.00")),
+		),
+		total_value_added=Coalesce(
+			Sum("amount", filter=Q(record_type=TipperRecordType.VALUE_ADDED)),
+			Value(Decimal("0.00")),
+		),
+	)
+	tipper_summary_labels = ["Expense", "Value Added"]
+	tipper_summary_values = [
+		float(tipper_summary["total_expense"]),
+		float(tipper_summary["total_value_added"]),
+	]
+	tipper_summary["net_value"] = tipper_summary["total_value_added"] - tipper_summary["total_expense"]
+
 	return {
 		"kpis": {
 			"total_sales": kpi_sales["total_sales"],
@@ -330,6 +354,9 @@ def _dashboard_context(date_from="", date_to=""):
 		"category_expense_values": category_expense_values,
 		"category_income_labels": category_income_labels,
 		"category_income_values": category_income_values,
+		"tipper_summary": tipper_summary,
+		"tipper_summary_labels": tipper_summary_labels,
+		"tipper_summary_values": tipper_summary_values,
 		"filters": {
 			"date_from": date_from,
 			"date_to": date_to,
@@ -903,6 +930,144 @@ def jcb_record_mark_paid(request, pk):
 
 	messages.success(request, f"JCB record on {jcb_record.date} marked as paid.")
 	return _redirect_to_next_or_default(request, "jcb_records")
+
+
+@login_required
+def tipper_records(request):
+	queryset = TipperRecord.objects.select_related("item").all()
+
+	query = request.GET.get("q", "").strip()
+	date_from = request.GET.get("date_from", "").strip()
+	date_to = request.GET.get("date_to", "").strip()
+	record_type = request.GET.get("record_type", "").strip()
+	item_id = request.GET.get("item", "").strip()
+	sort = request.GET.get("sort", "-date")
+
+	if query:
+		queryset = queryset.filter(Q(item__name__icontains=query))
+	if date_from:
+		queryset = queryset.filter(date__gte=date_from)
+	if date_to:
+		queryset = queryset.filter(date__lte=date_to)
+	if record_type:
+		queryset = queryset.filter(record_type=record_type)
+	if item_id:
+		queryset = queryset.filter(item_id=item_id)
+
+	allowed_sorts = {
+		"-date": "-date",
+		"date": "date",
+		"-amount": "-amount",
+		"amount": "amount",
+		"item": "item__name",
+		"-item": "-item__name",
+	}
+	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
+
+	paginator = Paginator(queryset, 12)
+	page_obj = paginator.get_page(request.GET.get("page"))
+
+	context = {
+		"tipper_records": page_obj.object_list,
+		"page_obj": page_obj,
+		"items": TipperItem.objects.order_by("name"),
+		"record_type_choices": TipperRecordType.choices,
+		"filters": {
+			"q": query,
+			"date_from": date_from,
+			"date_to": date_to,
+			"record_type": record_type,
+			"item": item_id,
+			"sort": sort,
+		},
+	}
+
+	if request.headers.get("HX-Request"):
+		return render(request, "core/partials/tipper_records_table.html", context)
+	return render(request, "core/tipper_records.html", context)
+
+
+@login_required
+def tipper_record_detail(request, pk):
+	tipper_record = get_object_or_404(TipperRecord.objects.select_related("item"), pk=pk)
+	return render(request, "core/tipper_record_detail.html", {"tipper_record": tipper_record})
+
+
+@login_required
+def tipper_record_create(request):
+	if request.method == "POST":
+		form = TipperRecordForm(request.POST)
+		if form.is_valid():
+			form.save()
+			messages.success(request, "Tipper record created successfully.")
+			return redirect("tipper_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = TipperRecordForm()
+
+	return render(
+		request,
+		"core/tipper_record_form.html",
+		{
+			"form": form,
+			"form_title": "Add Tipper Record",
+			"submit_label": "Create Record",
+		},
+	)
+
+
+@login_required
+def tipper_record_edit(request, pk):
+	tipper_record = get_object_or_404(TipperRecord, pk=pk)
+
+	if request.method == "POST":
+		form = TipperRecordForm(request.POST, instance=tipper_record)
+		if form.is_valid():
+			form.save()
+			messages.success(request, "Tipper record updated successfully.")
+			return redirect("tipper_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = TipperRecordForm(instance=tipper_record)
+
+	return render(
+		request,
+		"core/tipper_record_form.html",
+		{
+			"form": form,
+			"form_title": "Edit Tipper Record",
+			"submit_label": "Update Record",
+			"tipper_record": tipper_record,
+		},
+	)
+
+
+@login_required
+def tipper_record_delete(request, pk):
+	tipper_record = get_object_or_404(TipperRecord, pk=pk)
+
+	if request.method != "POST":
+		return redirect("tipper_records")
+
+	record_label = f"{tipper_record.get_record_type_display()} on {tipper_record.date}"
+
+	try:
+		tipper_record.delete()
+	except Exception:
+		if request.headers.get("HX-Request"):
+			return _htmx_feedback_response(
+				"Unable to delete tipper record right now.",
+				level="error",
+				status=400,
+			)
+		messages.error(request, "Unable to delete tipper record right now.")
+		return redirect("tipper_records")
+
+	if request.headers.get("HX-Request"):
+		return _htmx_feedback_response(f"Deleted tipper record: {record_label}.")
+
+	messages.success(request, f"Deleted tipper record: {record_label}.")
+	return redirect("tipper_records")
 
 
 @login_required

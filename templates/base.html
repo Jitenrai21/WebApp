@@ -130,6 +130,14 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{% url 'tipper_records' %}" class="{% if '/tipper-records' in request.path %}active{% endif %}">
+                            <span class="inline-flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 5a2 2 0 012-2h8a2 2 0 012 2v3h1a3 3 0 013 3v2a2 2 0 01-2 2h-1v1a1 1 0 11-2 0v-1H7v1a1 1 0 11-2 0v-1H4a2 2 0 01-2-2V5zm2 0v7h8V5H4zm11 6a1 1 0 100 2h1v-2h-1z" /></svg>
+                                <span>Tipper Records</span>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{% url 'customers' %}" class="{% if '/customers' in request.path %}active{% endif %}">
                             <span class="inline-flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3a4 4 0 110 8 4 4 0 010-8zm-7 13a7 7 0 1114 0H3z" /></svg>

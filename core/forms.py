@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
-from .models import Customer, JCBRecord, Sale, Transaction
+from .models import Customer, JCBRecord, Sale, TipperRecord, Transaction
 from .models import RecordStatus
 
 
@@ -347,5 +347,31 @@ class JCBRecordForm(forms.ModelForm):
             worked = self.instance.end_time - self.instance.start_time
             if worked > 0:
                 self.initial["total_amount"] = (worked * self.instance.rate).quantize(Decimal("0.01"))
+        for field_name, field in self.fields.items():
+            _decorate_widget(field_name, field)
+
+
+class TipperRecordForm(forms.ModelForm):
+    class Meta:
+        model = TipperRecord
+        fields = [
+            "date",
+            "item",
+            "record_type",
+            "amount",
+        ]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise forms.ValidationError("Amount must be greater than 0.")
+        return amount
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         for field_name, field in self.fields.items():
             _decorate_widget(field_name, field)

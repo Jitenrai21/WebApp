@@ -1,0 +1,117 @@
+<div class="cf-table-shell">
+    <div class="cf-table-head">
+        <h2 class="font-semibold">Tipper Record List</h2>
+        <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="table table-zebra table-md">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Item</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th class="text-right whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in tipper_records %}
+                <tr>
+                    <td>{{ record.date }}</td>
+                    <td>{{ record.item.name }}</td>
+                    <td>
+                        <span class="badge badge-sm {% if record.record_type == 'expense' %}badge-error badge-soft{% else %}badge-success badge-soft{% endif %}">
+                            {{ record.get_record_type_display }}
+                        </span>
+                    </td>
+                    <td>NPR {{ record.amount }}</td>
+                    <td class="text-right align-middle">
+                        <div class="inline-flex min-h-8 items-center justify-end gap-1 whitespace-nowrap">
+                            <div class="hidden md:flex items-center justify-end gap-1">
+                                <a href="{% url 'tipper_record_detail' record.id %}" class="btn btn-xs btn-square btn-outline" title="View record" aria-label="View tipper record {{ record.id }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 3c-4.5 0-8.25 2.5-9.5 6.5C1.75 13.5 5.5 16 10 16s8.25-2.5 9.5-6.5C18.25 5.5 14.5 3 10 3zm0 10a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" /></svg>
+                                </a>
+                                <a href="{% url 'tipper_record_edit' record.id %}" class="btn btn-xs btn-square btn-outline" title="Edit record" aria-label="Edit tipper record {{ record.id }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M13.586 2.586a2 2 0 112.828 2.828l-8.9 8.9a1 1 0 01-.424.26l-3 1a1 1 0 01-1.264-1.264l1-3a1 1 0 01.26-.424l8.9-8.9z" /></svg>
+                                </a>
+                                <form method="post"
+                                      action="{% url 'tipper_record_delete' record.id %}"
+                                      hx-post="{% url 'tipper_record_delete' record.id %}"
+                                      hx-target="closest tr"
+                                      hx-swap="delete"
+                                      onsubmit="return confirm('Delete this tipper record? This cannot be undone.');"
+                                      class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-xs btn-square btn-error btn-outline" title="Delete record" aria-label="Delete tipper record {{ record.id }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.894.553L5.382 4H3a1 1 0 000 2h.293l.94 9.405A2 2 0 006.222 17h7.556a2 2 0 001.989-1.595L16.707 6H17a1 1 0 100-2h-2.382l-.724-1.447A1 1 0 0013 2H7zm2 5a1 1 0 10-2 0v6a1 1 0 102 0V7zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V7z" clip-rule="evenodd" /></svg>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div class="dropdown dropdown-end md:hidden">
+                                <label tabindex="0" class="btn btn-xs btn-outline">Actions</label>
+                                <div tabindex="0" class="dropdown-content z-[1] mt-2 w-44 rounded-box border border-base-300 bg-base-100 p-2 shadow">
+                                    <div class="flex flex-col gap-1">
+                                        <a href="{% url 'tipper_record_detail' record.id %}" class="btn btn-xs btn-ghost justify-start">View</a>
+                                        <a href="{% url 'tipper_record_edit' record.id %}" class="btn btn-xs btn-ghost justify-start">Edit</a>
+                                        <form method="post"
+                                              action="{% url 'tipper_record_delete' record.id %}"
+                                              hx-post="{% url 'tipper_record_delete' record.id %}"
+                                              hx-target="closest tr"
+                                              hx-swap="delete"
+                                              onsubmit="return confirm('Delete this tipper record? This cannot be undone.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-xs btn-error btn-outline w-full justify-start">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="py-0">
+                        <div class="cf-empty">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 5a2 2 0 012-2h8a2 2 0 012 2v3h1a3 3 0 013 3v2a2 2 0 01-2 2h-1v1a1 1 0 11-2 0v-1H7v1a1 1 0 11-2 0v-1H4a2 2 0 01-2-2V5z" /></svg>
+                            <p>No tipper records found for the selected filters.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-base-300/70">
+        <p class="text-xs text-base-content/70">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </p>
+        <div class="join">
+            {% if page_obj.has_previous %}
+            <a
+                href="{% url 'tipper_records' %}?q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&record_type={{ filters.record_type }}&item={{ filters.item }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                hx-get="{% url 'tipper_records' %}?q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&record_type={{ filters.record_type }}&item={{ filters.item }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                hx-target="#tipper-table-container"
+                hx-push-url="true"
+                class="btn btn-sm join-item"
+            >Previous</a>
+            {% else %}
+            <button class="btn btn-sm join-item" disabled>Previous</button>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a
+                href="{% url 'tipper_records' %}?q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&record_type={{ filters.record_type }}&item={{ filters.item }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                hx-get="{% url 'tipper_records' %}?q={{ filters.q|urlencode }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&record_type={{ filters.record_type }}&item={{ filters.item }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                hx-target="#tipper-table-container"
+                hx-push-url="true"
+                class="btn btn-sm join-item"
+            >Next</a>
+            {% else %}
+            <button class="btn btn-sm join-item" disabled>Next</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>

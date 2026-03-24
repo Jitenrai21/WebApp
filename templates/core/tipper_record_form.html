@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="cf-page-header">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+                <p class="cf-page-subtitle">A tipper entry must represent either expense or value added.</p>
+            </div>
+            <a href="{% url 'tipper_records' %}" class="btn btn-outline">Back to Tipper Records</a>
+        </div>
+    </div>
+
+    <form method="post" class="cf-section p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <span>{{ form.non_field_errors|join:', ' }}</span>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_date"><span class="label-text">Date</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_item"><span class="label-text">Item</span></label>
+                {{ form.item }}
+                {% if form.item.errors %}<p class="text-error text-sm mt-1">{{ form.item.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_record_type"><span class="label-text">Record Type</span></label>
+                {{ form.record_type }}
+                {% if form.record_type.errors %}<p class="text-error text-sm mt-1">{{ form.record_type.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_amount"><span class="label-text">Amount</span></label>
+                {{ form.amount }}
+                {% if form.amount.errors %}<p class="text-error text-sm mt-1">{{ form.amount.errors|join:', ' }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="pt-2 flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            {% if tipper_record %}
+            <a href="{% url 'tipper_record_detail' tipper_record.id %}" class="btn btn-error btn-outline">Open Delete Option</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

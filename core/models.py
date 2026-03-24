@@ -232,6 +232,43 @@ class JCBRecord(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
+class TipperRecordType(models.TextChoices):
+    EXPENSE = "expense", "Expense"
+    VALUE_ADDED = "value_added", "Value Added"
+
+
+class TipperItem(models.Model):
+    name = models.CharField(max_length=120, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class TipperRecord(TimeStampedModel):
+    date = models.DateField(default=timezone.now)
+    item = models.ForeignKey(
+        TipperItem,
+        on_delete=models.CASCADE,
+        related_name="tipper_records",
+    )
+    record_type = models.CharField(max_length=20, choices=TipperRecordType.choices)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(fields=["date"], name="core_tipperr_date_idx"),
+            models.Index(fields=["item"], name="core_tipperr_item_idx"),
+            models.Index(fields=["record_type"], name="core_tipperr_type_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_record_type_display()} - {self.item.name} ({self.amount})"
+
+
 class AlertType(models.TextChoices):
     OVERDUE = "overdue", "Overdue"
     UPCOMING = "upcoming", "Upcoming"

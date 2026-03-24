@@ -7,6 +7,8 @@ from .models import (
     JCBRecord,
     PaymentAllocation,
     Sale,
+    TipperItem,
+    TipperRecord,
     Transaction,
     TransactionCategory,
 )
@@ -140,5 +142,22 @@ class JCBRecordAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "date")
     search_fields = ("site_name", "expense_item")
+    date_hierarchy = "date"
+    ordering = ("-date", "-created_at")
+
+
+@admin.register(TipperItem)
+class TipperItemAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+    search_fields = ("name",)
+    ordering = ("name",)
+
+
+@admin.register(TipperRecord)
+class TipperRecordAdmin(admin.ModelAdmin):
+    list_display = ("date", "item", "record_type", "amount")
+    list_filter = ("record_type", "item", "date")
+    search_fields = ("item__name",)
+    autocomplete_fields = ("item",)
     date_hierarchy = "date"
     ordering = ("-date", "-created_at")
