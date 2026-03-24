@@ -1,10 +1,18 @@
 from django.core.management.base import BaseCommand
 
-from core.models import RecordStatus, Sale, Transaction, TransactionType
+from core.models import RecordStatus, Sale, Transaction, TransactionCategory, TransactionType
 
 
 AUTO_SALE_INCOME_CATEGORY = "Sale Income (Auto)"
 AUTO_SALE_INCOME_DESCRIPTION = "Auto-linked from paid sale"
+
+
+def _get_or_create_predefined_category(name):
+    category, _ = TransactionCategory.objects.get_or_create(
+        name=name,
+        defaults={"is_predefined": True},
+    )
+    return category
 
 
 class Command(BaseCommand):
@@ -15,6 +23,7 @@ class Command(BaseCommand):
         updated = 0
         deleted = 0
         skipped = 0
+        auto_sale_category = _get_or_create_predefined_category(AUTO_SALE_INCOME_CATEGORY)
 
         sales = Sale.objects.select_related("customer").all()
 
@@ -22,11 +31,11 @@ class Command(BaseCommand):
             auto_income_qs = Transaction.objects.filter(
                 sale=sale,
                 type=TransactionType.INCOME,
-                category=AUTO_SALE_INCOME_CATEGORY,
+                category=auto_sale_category,
             )
 
             has_manual_income = sale.receipts.filter(type=TransactionType.INCOME).exclude(
-                category=AUTO_SALE_INCOME_CATEGORY
+                category=auto_sale_category
             ).exists()
 
             if sale.status == RecordStatus.PAID and not has_manual_income:
@@ -58,7 +67,7 @@ class Command(BaseCommand):
                         date=sale.date,
                         amount=sale.total_amount,
                         type=TransactionType.INCOME,
-                        category=AUTO_SALE_INCOME_CATEGORY,
+                        category=auto_sale_category,
                         description=description,
                         customer=sale.customer,
                         sale=sale,

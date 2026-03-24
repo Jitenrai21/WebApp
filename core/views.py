@@ -37,6 +37,14 @@ JCB_INCOME_CATEGORY = "JCB Income"
 JCB_EXPENSE_CATEGORY = "JCB Expense"
 
 
+def _get_or_create_predefined_category(name):
+	category, _ = TransactionCategory.objects.get_or_create(
+		name=name,
+		defaults={"is_predefined": True},
+	)
+	return category
+
+
 def _htmx_feedback_response(message, level="success", status=200, redirect_url=""):
 	payload = {
 		"cf-toast": {
@@ -131,7 +139,8 @@ def _build_alert_items(alert_type="", customer_id="", date_from="", date_to=""):
 
 
 def _alerts_badge_count():
-	return AlertNotification.objects.filter(is_active=True, is_read=False).count()
+	# Badge should reflect the same live "Active Alerts" criteria as the alerts table.
+	return len(_build_alert_items())
 
 
 def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
@@ -354,14 +363,15 @@ def _redirect_to_next_or_default(request, default_name, **kwargs):
 
 
 def _sync_paid_sale_income_entry(sale):
+	auto_sale_category = _get_or_create_predefined_category(AUTO_SALE_INCOME_CATEGORY)
 	auto_income_qs = Transaction.objects.filter(
 		sale=sale,
 		type=TransactionType.INCOME,
-		category=AUTO_SALE_INCOME_CATEGORY,
+		category=auto_sale_category,
 	)
 
 	has_manual_income = sale.receipts.filter(type=TransactionType.INCOME).exclude(
-		category=AUTO_SALE_INCOME_CATEGORY
+		category=auto_sale_category
 	).exists()
 
 	if sale.status == RecordStatus.PAID and not has_manual_income:
@@ -389,7 +399,7 @@ def _sync_paid_sale_income_entry(sale):
 			date=sale.date,
 			amount=sale.total_amount,
 			type=TransactionType.INCOME,
-			category=AUTO_SALE_INCOME_CATEGORY,
+			category=auto_sale_category,
 			description=description,
 			customer=sale.customer,
 			sale=sale,
@@ -400,6 +410,8 @@ def _sync_paid_sale_income_entry(sale):
 
 
 def _sync_jcb_transactions(jcb_record):
+	jcb_income_category = _get_or_create_predefined_category(JCB_INCOME_CATEGORY)
+	jcb_expense_category = _get_or_create_predefined_category(JCB_EXPENSE_CATEGORY)
 	income_description = f"JCB work on {jcb_record.date} ({jcb_record.total_work_hours} hrs)"
 	if jcb_record.site_name:
 		income_description = f"{income_description} - {jcb_record.site_name}"
@@ -408,7 +420,7 @@ def _sync_jcb_transactions(jcb_record):
 	income_qs = Transaction.objects.filter(
 		jcb_record=jcb_record,
 		type=TransactionType.INCOME,
-		category=JCB_INCOME_CATEGORY,
+		category=jcb_income_category,
 	)
 
 	if jcb_record.status == RecordStatus.PAID:
@@ -435,7 +447,7 @@ def _sync_jcb_transactions(jcb_record):
 				amount=income_amount,
 				type=TransactionType.INCOME,
 				payment_method=PaymentMethod.CASH,
-				category=JCB_INCOME_CATEGORY,
+				category=jcb_income_category,
 				description=income_description,
 				jcb_record=jcb_record,
 			)
@@ -445,7 +457,7 @@ def _sync_jcb_transactions(jcb_record):
 	expense_qs = Transaction.objects.filter(
 		jcb_record=jcb_record,
 		type=TransactionType.EXPENSE,
-		category=JCB_EXPENSE_CATEGORY,
+		category=jcb_expense_category,
 	)
 
 	if jcb_record.expense_item and jcb_record.expense_amount and jcb_record.expense_amount > 0:
@@ -471,7 +483,7 @@ def _sync_jcb_transactions(jcb_record):
 				amount=jcb_record.expense_amount,
 				type=TransactionType.EXPENSE,
 				payment_method=PaymentMethod.CASH,
-				category=JCB_EXPENSE_CATEGORY,
+				category=jcb_expense_category,
 				description=expense_description,
 				jcb_record=jcb_record,
 			)
@@ -1130,7 +1142,7 @@ def sale_receipt_create(request, pk):
 		receipt.customer = sale.customer
 		receipt.sale = sale
 		if not receipt.category:
-			receipt.category = "Sales Receipt"
+			receipt.category = _get_or_create_predefined_category("Sales Receipt")
 		receipt.save()
 		_sync_sale_payment_fields(sale)
 		_sync_paid_sale_income_entry(sale)
@@ -1290,7 +1302,7 @@ def customer_allocate_payment(request, pk):
 				date=payment_date,
 				amount=allocation_amount,
 				type=TransactionType.INCOME,
-				category=PAYMENT_ALLOCATION_CATEGORY,
+				category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY),
 				description=f"Allocated from customer payment to invoice {sale.invoice_number}",
 				customer=customer,
 				sale=sale,

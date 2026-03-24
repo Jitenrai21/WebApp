@@ -12,6 +12,7 @@
                     <th>Type</th>
                     <th>Payment Method</th>
                     <th>Category</th>
+                    <th>Description</th>
                     <th>Amount</th>
                     <th>Attachment</th>
                     <th class="text-right whitespace-nowrap">Actions</th>
@@ -34,6 +35,13 @@
                     </td>
                     <td>{{ transaction.get_payment_method_display }}</td>
                     <td>{{ transaction.category }}</td>
+                    <td>
+                        {% if transaction.description %}
+                        {{ transaction.description }}
+                        {% else %}
+                        <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
                     <td>NPR {{ transaction.amount }}</td>
                     <td>
                         {% if transaction.attachment %}
@@ -88,7 +96,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="py-0">
+                    <td colspan="9" class="py-0">
                         <div class="cf-empty">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1zm1 3a1 1 0 100 2h12a1 1 0 100-2H4z" /></svg>
                             <p>No transactions found for the selected filters.</p>

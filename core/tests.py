@@ -230,8 +230,12 @@ class AlertsWorkflowTests(TestCase):
 
 		self.client.get(reverse("alerts"))
 		badge_after = self.client.get(reverse("alerts_badge"))
-		self.assertContains(badge_after, "badge-outline")
-		self.assertContains(badge_after, ">0<")
+		self.assertContains(badge_after, "badge-error")
+
+	def test_badge_uses_live_alert_items_without_scheduler_run(self):
+		self.client.login(username="alert-user", password="pass1234")
+		badge = self.client.get(reverse("alerts_badge"))
+		self.assertContains(badge, "badge-error")
 
 	def test_scheduler_command_is_idempotent(self):
 		call_command("process_alert_notifications")
