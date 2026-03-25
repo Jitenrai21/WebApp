@@ -38,6 +38,9 @@ urlpatterns = [
     path("customers/<int:pk>/edit/", views.customer_edit, name="customer_edit"),
     path("customers/<int:pk>/delete/", views.customer_delete, name="customer_delete"),
     path("alerts/", views.alerts, name="alerts"),
+    path("alerts/manual/new/", views.manual_alert_create, name="manual_alert_create"),
+    path("alerts/manual/<int:pk>/edit/", views.manual_alert_edit, name="manual_alert_edit"),
+    path("alerts/manual/<int:pk>/delete/", views.manual_alert_delete, name="manual_alert_delete"),
     path("alerts/badge/", views.alerts_badge, name="alerts_badge"),
     path(
         "alerts/notifications/<int:pk>/resolve/",

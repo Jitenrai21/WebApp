@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="cf-page-header">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+                <p class="cf-page-subtitle">Create or update a manual reminder for a specific task or due date.</p>
+            </div>
+            <a href="{% url 'alerts' %}" class="btn btn-outline">Back to Alerts</a>
+        </div>
+    </div>
+
+    <form method="post" class="cf-section p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <span>{{ form.non_field_errors|join:', ' }}</span>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_due_date"><span class="label-text">Due Date</span></label>
+                {{ form.due_date }}
+                {% if form.due_date.errors %}<p class="text-error text-sm mt-1">{{ form.due_date.errors|join:', ' }}</p>{% endif %}
+            </div>
+
+            <div class="form-control">
+                <label class="label" for="id_alert_type"><span class="label-text">Alert Type (Optional)</span></label>
+                {{ form.alert_type }}
+                {% if form.alert_type.errors %}<p class="text-error text-sm mt-1">{{ form.alert_type.errors|join:', ' }}</p>{% endif %}
+            </div>
+
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_title"><span class="label-text">Title</span></label>
+                {{ form.title }}
+                {% if form.title.errors %}<p class="text-error text-sm mt-1">{{ form.title.errors|join:', ' }}</p>{% endif %}
+            </div>
+
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_message"><span class="label-text">Message</span></label>
+                {{ form.message }}
+                {% if form.message.errors %}<p class="text-error text-sm mt-1">{{ form.message.errors|join:', ' }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

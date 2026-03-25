@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import SaleForm
-from .models import AlertNotification, Customer, CustomerType, Sale, Transaction, TransactionType
+from .models import AlertNotification, AlertSource, AlertType, Customer, CustomerType, Sale, Transaction, TransactionType
 
 
 class SalesWorkflowTests(TestCase):
@@ -244,3 +244,93 @@ class AlertsWorkflowTests(TestCase):
 		second_count = AlertNotification.objects.count()
 		self.assertEqual(first_count, second_count)
 		self.assertGreater(first_count, 0)
+
+	def test_manual_alert_create_and_display(self):
+		self.client.login(username="alert-user", password="pass1234")
+		response = self.client.post(
+			reverse("manual_alert_create"),
+			data={
+				"due_date": timezone.localdate().isoformat(),
+				"title": "Follow up call",
+				"message": "Call customer for pending documents.",
+				"alert_type": "",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		self.assertRedirects(response, reverse("alerts"))
+		manual_alert = AlertNotification.objects.get(title="Follow up call")
+		self.assertEqual(manual_alert.source_type, AlertSource.MANUAL)
+		self.assertEqual(manual_alert.alert_type, AlertType.MANUAL)
+		self.assertIsNone(manual_alert.customer)
+
+		alerts_page = self.client.get(reverse("alerts"))
+		self.assertContains(alerts_page, "Follow up call")
+		self.assertContains(alerts_page, "Manual")
+
+	def test_manual_alert_duplicate_validation(self):
+		self.client.login(username="alert-user", password="pass1234")
+		due_date = timezone.localdate().isoformat()
+
+		AlertNotification.objects.create(
+			alert_type=AlertType.MANUAL,
+			source_type=AlertSource.MANUAL,
+			source_id=None,
+			customer=None,
+			due_date=due_date,
+			amount=Decimal("0.00"),
+			title="Unique Task",
+			message="Original",
+		)
+
+		response = self.client.post(
+			reverse("manual_alert_create"),
+			data={
+				"due_date": due_date,
+				"title": "Unique Task",
+				"message": "Duplicate",
+				"alert_type": "manual",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(
+			response,
+			"A manual alert with this title already exists for this due date.",
+		)
+
+	def test_manual_alert_edit_delete_and_resolve(self):
+		self.client.login(username="alert-user", password="pass1234")
+		manual_alert = AlertNotification.objects.create(
+			alert_type=AlertType.MANUAL,
+			source_type=AlertSource.MANUAL,
+			source_id=None,
+			customer=None,
+			due_date=timezone.localdate(),
+			amount=Decimal("0.00"),
+			title="Initial Alert",
+			message="Initial message",
+		)
+
+		edit_response = self.client.post(
+			reverse("manual_alert_edit", args=[manual_alert.pk]),
+			data={
+				"due_date": timezone.localdate().isoformat(),
+				"title": "Updated Alert",
+				"message": "Updated message",
+				"alert_type": "upcoming",
+			},
+		)
+		self.assertEqual(edit_response.status_code, 302)
+		manual_alert.refresh_from_db()
+		self.assertEqual(manual_alert.title, "Updated Alert")
+		self.assertEqual(manual_alert.alert_type, AlertType.UPCOMING)
+
+		resolve_response = self.client.post(reverse("alert_notification_resolve", args=[manual_alert.pk]))
+		self.assertEqual(resolve_response.status_code, 302)
+		manual_alert.refresh_from_db()
+		self.assertFalse(manual_alert.is_active)
+
+		delete_response = self.client.post(reverse("manual_alert_delete", args=[manual_alert.pk]))
+		self.assertEqual(delete_response.status_code, 302)
+		self.assertFalse(AlertNotification.objects.filter(pk=manual_alert.pk).exists())

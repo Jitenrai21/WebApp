@@ -80,7 +80,10 @@ class Command(BaseCommand):
                 updated_count += 1
 
         # Resolve any active notification whose source signature is no longer active.
-        for notification in AlertNotification.objects.filter(is_active=True):
+        for notification in AlertNotification.objects.filter(
+            is_active=True,
+            source_type=AlertSource.SALE,
+        ):
             signature = (
                 notification.alert_type,
                 notification.source_type,

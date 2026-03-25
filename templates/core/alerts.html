@@ -5,8 +5,13 @@
 {% block content %}
 <div class="space-y-6">
     <div class="cf-page-header">
-        <h1 class="text-3xl font-extrabold tracking-tight">Notifications and Timeline Alerts</h1>
-        <p class="cf-page-subtitle">Track overdue and upcoming sales or transactions due within the next seven days.</p>
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">Notifications and Timeline Alerts</h1>
+                <p class="cf-page-subtitle">Track auto and manual alerts for due tasks, invoices, and reminders.</p>
+            </div>
+            <a href="{% url 'manual_alert_create' %}" class="btn btn-primary">New Alert</a>
+        </div>
     </div>
 
     <form

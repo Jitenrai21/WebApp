@@ -13,7 +13,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 
-from .forms import CustomerForm, JCBRecordForm, SaleForm, SaleReceiptForm, TipperRecordForm, TransactionForm
+from .forms import (
+	CustomerForm,
+	JCBRecordForm,
+	ManualAlertForm,
+	SaleForm,
+	SaleReceiptForm,
+	TipperRecordForm,
+	TransactionForm,
+)
 from .models import (
 	AlertNotification,
 	AlertSource,
@@ -37,6 +45,8 @@ from .models import (
 AUTO_SALE_INCOME_CATEGORY = "Sale Income (Auto)"
 AUTO_SALE_INCOME_DESCRIPTION = "Auto-linked from paid sale"
 PAYMENT_ALLOCATION_CATEGORY = "Sales Payment Allocation"
+MANUAL_DUE_SETTLEMENT_CATEGORY = "Manual Due Settlement"
+CREDIT_TOPUP_CATEGORY = "Customer Credit Top-up"
 JCB_INCOME_CATEGORY = "JCB Income"
 JCB_EXPENSE_CATEGORY = "JCB Expense"
 
@@ -138,16 +148,47 @@ def _build_alert_items(alert_type="", customer_id="", date_from="", date_to=""):
 			}
 		)
 
+	manual_alerts = AlertNotification.objects.select_related("customer").filter(
+		source_type=AlertSource.MANUAL,
+		is_active=True,
+	)
+	if customer_id:
+		manual_alerts = manual_alerts.filter(customer_id=customer_id)
+	if date_from:
+		manual_alerts = manual_alerts.filter(due_date__gte=date_from)
+	if date_to:
+		manual_alerts = manual_alerts.filter(due_date__lte=date_to)
+	if alert_type:
+		manual_alerts = manual_alerts.filter(alert_type=alert_type)
+
+	for manual_alert in manual_alerts:
+		manual_state = AlertType.OVERDUE if manual_alert.due_date < today else AlertType.UPCOMING
+		if alert_type and alert_type != manual_state:
+			continue
+		alert_items.append(
+			{
+				"state": manual_state,
+				"source": AlertSource.MANUAL,
+				"due_date": manual_alert.due_date,
+				"customer": manual_alert.customer,
+				"title": manual_alert.title,
+				"amount": manual_alert.amount,
+				"status_label": "Manual",
+				"object_id": manual_alert.id,
+			}
+		)
+
 	alert_items.sort(key=lambda item: (item["due_date"], item["state"] == AlertType.UPCOMING))
 	return alert_items
 
 
 def _alerts_badge_count():
-	# Badge should reflect the same live "Active Alerts" criteria as the alerts table.
-	return len(_build_alert_items())
+	# Badge should only show currently overdue active alerts.
+	return sum(1 for item in _build_alert_items() if item["state"] == AlertType.OVERDUE)
 
 
 def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
+	today = timezone.localdate()
 	alert_items = _build_alert_items(
 		alert_type=alert_type,
 		customer_id=customer_id,
@@ -163,7 +204,18 @@ def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
 	if date_to:
 		notification_timeline = notification_timeline.filter(due_date__lte=date_to)
 	if alert_type:
-		notification_timeline = notification_timeline.filter(alert_type=alert_type)
+		if alert_type == AlertType.OVERDUE:
+			notification_timeline = notification_timeline.filter(
+				Q(alert_type=AlertType.OVERDUE)
+				| Q(source_type=AlertSource.MANUAL, due_date__lt=today)
+			)
+		elif alert_type == AlertType.UPCOMING:
+			notification_timeline = notification_timeline.filter(
+				Q(alert_type=AlertType.UPCOMING)
+				| Q(source_type=AlertSource.MANUAL, due_date__gte=today)
+			)
+		else:
+			notification_timeline = notification_timeline.filter(alert_type=alert_type)
 
 	return {
 		"alert_items": alert_items,
@@ -175,6 +227,7 @@ def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
 			"date_from": date_from,
 			"date_to": date_to,
 		},
+		"today": today,
 		"alerts_badge_count": _alerts_badge_count(),
 	}
 
@@ -1499,6 +1552,15 @@ def customer_allocate_payment(request, pk):
 		if manual_due_to_allocate and remaining_payment > 0 and customer.manual_due_amount > 0:
 			# Allocate remaining payment to manual due amount
 			allocate_to_manual_due = min(remaining_payment, customer.manual_due_amount)
+			if allocate_to_manual_due > 0:
+				Transaction.objects.create(
+					date=payment_date,
+					amount=allocate_to_manual_due,
+					type=TransactionType.INCOME,
+					category=_get_or_create_predefined_category(MANUAL_DUE_SETTLEMENT_CATEGORY),
+					description="Allocated from customer payment to manual due settlement",
+					customer=customer,
+				)
 			customer.manual_due_amount -= allocate_to_manual_due
 			remaining_payment -= allocate_to_manual_due
 			allocated_total += allocate_to_manual_due
@@ -1511,6 +1573,14 @@ def customer_allocate_payment(request, pk):
 			customer.save(update_fields=["manual_due_amount", "updated_at"])
 
 		if remaining_payment > 0:
+			Transaction.objects.create(
+				date=payment_date,
+				amount=remaining_payment,
+				type=TransactionType.INCOME,
+				category=_get_or_create_predefined_category(CREDIT_TOPUP_CATEGORY),
+				description="Unallocated customer payment added to customer credit balance",
+				customer=customer,
+			)
 			customer.credit_balance = customer.credit_balance + remaining_payment
 			customer.save(update_fields=["credit_balance", "updated_at"])
 		else:
@@ -1663,4 +1733,70 @@ def alert_notification_resolve(request, pk):
 	if request.headers.get("HX-Request"):
 		context["include_badge_oob"] = True
 		return render(request, "core/partials/alerts_content.html", context)
+	return redirect("alerts")
+
+
+@login_required
+def manual_alert_create(request):
+	if request.method == "POST":
+		form = ManualAlertForm(request.POST)
+		if form.is_valid():
+			form.save()
+			messages.success(request, "Manual alert created successfully.")
+			return redirect("alerts")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = ManualAlertForm(initial={"due_date": timezone.localdate()})
+
+	return render(
+		request,
+		"core/manual_alert_form.html",
+		{
+			"form": form,
+			"form_title": "Create Manual Alert",
+			"submit_label": "Create Alert",
+		},
+	)
+
+
+@login_required
+def manual_alert_edit(request, pk):
+	manual_alert = get_object_or_404(AlertNotification, pk=pk)
+	if manual_alert.source_type != AlertSource.MANUAL:
+		messages.error(request, "Only manual alerts can be edited.")
+		return redirect("alerts")
+
+	if request.method == "POST":
+		form = ManualAlertForm(request.POST, instance=manual_alert)
+		if form.is_valid():
+			form.save()
+			messages.success(request, "Manual alert updated successfully.")
+			return redirect("alerts")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = ManualAlertForm(instance=manual_alert)
+
+	return render(
+		request,
+		"core/manual_alert_form.html",
+		{
+			"form": form,
+			"form_title": "Edit Manual Alert",
+			"submit_label": "Update Alert",
+		},
+	)
+
+
+@login_required
+def manual_alert_delete(request, pk):
+	manual_alert = get_object_or_404(AlertNotification, pk=pk)
+	if manual_alert.source_type != AlertSource.MANUAL:
+		messages.error(request, "Only manual alerts can be deleted.")
+		return redirect("alerts")
+
+	if request.method != "POST":
+		return redirect("alerts")
+
+	manual_alert.delete()
+	messages.success(request, "Manual alert deleted successfully.")
 	return redirect("alerts")

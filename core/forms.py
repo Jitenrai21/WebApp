@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
-from .models import Customer, JCBRecord, Sale, TipperRecord, Transaction
+from .models import AlertNotification, AlertSource, AlertType, Customer, JCBRecord, Sale, TipperRecord, Transaction
 from .models import RecordStatus
 
 
@@ -14,7 +14,7 @@ def _decorate_widget(field_name, field):
         return
     if field_name in {"description", "profile_notes", "address", "items"}:
         field.widget.attrs["class"] = f"textarea textarea-bordered w-full {existing_class}".strip()
-    elif field_name in {"type", "payment_method", "customer", "status", "sale", "category"}:
+    elif field_name in {"type", "payment_method", "customer", "status", "sale", "category", "alert_type"}:
         field.widget.attrs["class"] = f"select select-bordered w-full {existing_class}".strip()
     elif field_name == "attachment":
         field.widget.attrs["class"] = f"file-input file-input-bordered w-full {existing_class}".strip()
@@ -373,5 +373,71 @@ class TipperRecordForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            _decorate_widget(field_name, field)
+
+
+class ManualAlertForm(forms.ModelForm):
+    class Meta:
+        model = AlertNotification
+        fields = ["due_date", "title", "message", "alert_type"]
+        widgets = {
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+            "message": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def clean_title(self):
+        title = (self.cleaned_data.get("title") or "").strip()
+        if not title:
+            raise forms.ValidationError("Title is required.")
+        return title
+
+    def clean(self):
+        cleaned_data = super().clean()
+        due_date = cleaned_data.get("due_date")
+        title = cleaned_data.get("title")
+
+        if due_date and title:
+            duplicate_qs = AlertNotification.objects.filter(
+                source_type=AlertSource.MANUAL,
+                due_date=due_date,
+                title__iexact=title,
+            )
+            if self.instance and self.instance.pk:
+                duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+            if duplicate_qs.exists():
+                self.add_error(
+                    "title",
+                    "A manual alert with this title already exists for this due date.",
+                )
+
+        if not cleaned_data.get("alert_type"):
+            cleaned_data["alert_type"] = AlertType.MANUAL
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        alert = super().save(commit=False)
+        alert.source_type = AlertSource.MANUAL
+        alert.source_id = None
+        alert.customer = None
+        alert.amount = Decimal("0.00")
+        if alert.pk is None:
+            alert.is_active = True
+            alert.is_read = False
+            alert.resolved_at = None
+        if not alert.alert_type:
+            alert.alert_type = AlertType.MANUAL
+        if commit:
+            alert.save()
+        return alert
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["alert_type"].required = False
+        self.fields["alert_type"].choices = [
+            ("", "Manual (default)"),
+            *AlertType.choices,
+        ]
         for field_name, field in self.fields.items():
             _decorate_widget(field_name, field)

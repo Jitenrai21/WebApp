@@ -272,21 +272,25 @@ class TipperRecord(TimeStampedModel):
 class AlertType(models.TextChoices):
     OVERDUE = "overdue", "Overdue"
     UPCOMING = "upcoming", "Upcoming"
+    MANUAL = "manual", "Manual"
 
 
 class AlertSource(models.TextChoices):
     SALE = "sale", "Sale"
     TRANSACTION = "transaction", "Transaction"
+    MANUAL = "manual", "Manual"
 
 
 class AlertNotification(TimeStampedModel):
     alert_type = models.CharField(max_length=20, choices=AlertType.choices)
     source_type = models.CharField(max_length=20, choices=AlertSource.choices)
-    source_id = models.PositiveIntegerField()
+    source_id = models.PositiveIntegerField(blank=True, null=True)
     customer = models.ForeignKey(
         Customer,
         on_delete=models.CASCADE,
         related_name="alert_notifications",
+        blank=True,
+        null=True,
     )
     due_date = models.DateField()
     amount = models.DecimalField(max_digits=14, decimal_places=2)
@@ -304,6 +308,13 @@ class AlertNotification(TimeStampedModel):
             "source_id",
             "due_date",
         )
+        constraints = [
+            models.UniqueConstraint(
+                fields=["due_date", "title", "source_type"],
+                condition=models.Q(source_type=AlertSource.MANUAL),
+                name="core_alertn_manual_due_title_uniq",
+            ),
+        ]
         indexes = [
             models.Index(fields=["is_active", "is_read"]),
             models.Index(fields=["source_type", "source_id"]),
@@ -311,7 +322,8 @@ class AlertNotification(TimeStampedModel):
         ]
 
     def __str__(self) -> str:
-        return f"{self.get_alert_type_display()} {self.get_source_type_display()} #{self.source_id}"
+        source_id = self.source_id if self.source_id is not None else "-"
+        return f"{self.get_alert_type_display()} {self.get_source_type_display()} #{source_id}"
 
 
 class CustomerPayment(TimeStampedModel):
