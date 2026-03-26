@@ -12,13 +12,17 @@ It is designed for businesses that need practical day-to-day control over:
 
 ## Core Capabilities
 
-- Dashboard with KPI cards and business trend charts
-- Sales ledger with invoice lifecycle and receipt tracking
-- Customer profile management with credit and manual due support
-- Customer payment allocation against one or more pending invoices
-- Cash entry management (income and expense) with optional attachments
-- JCB operational records with work hour and amount summary
-- Notification timeline for overdue and upcoming items
+- Dashboard with KPI cards, trend charts, and date-range filtering (defaulting to recent period)
+- Sales ledger with invoice lifecycle, due-date tracking, and receipt capture
+- Customer profile management with credit balance and manual due support
+- Customer payment allocation across multiple pending invoices with allocation history
+- Cash entry management (income and expense) with categories, links, and optional attachments
+- JCB operational records with hour calculation, income/expense summaries, and paid-state flow
+- Tipper records module with expense vs value-added tracking, detail view, and analytics cards
+- Alert center with overdue/upcoming pipeline, timeline history, and status resolution
+- Manual alert creation, editing, and deletion for custom reminders
+- Alert badge that emphasizes unresolved overdue items for quick action
+- HTMX partial responses for responsive filtering/tables without full page reloads
 - Authentication through Django auth views (login/logout)
 
 ## Technology Stack
@@ -33,23 +37,31 @@ It is designed for businesses that need practical day-to-day control over:
 
 ```text
 CompanyFlowManagementApp/
+├── .env
+├── .gitignore
 ├── CompanyLogo.png
 ├── manage.py
+├── README.md
 ├── requirements.txt
 ├── config/
+│   ├── __init__.py
 │   ├── settings.py
 │   ├── settings_test.py
 │   ├── urls.py
 │   ├── asgi.py
 │   └── wsgi.py
 ├── core/
+│   ├── __init__.py
 │   ├── models.py
 │   ├── views.py
 │   ├── urls.py
 │   ├── forms.py
 │   ├── admin.py
+│   ├── apps.py
 │   ├── tests.py
 │   ├── migrations/
+│   │   ├── 0001_initial.py ... 0017_*.py
+│   │   └── __init__.py
 │   ├── management/
 │   │   └── commands/
 │   │       ├── process_alert_notifications.py
@@ -58,68 +70,82 @@ CompanyFlowManagementApp/
 │       └── core/
 │           ├── CompanyLogo.png
 │           └── theme.css
+├── documentations/
+│   ├── breakdown.txt
+│   ├── db_log.txt
+│   └── roadmap.txt
 ├── templates/
 │   ├── base.html
 │   ├── registration/
 │   │   ├── login.html
 │   │   └── logged_out.html
 │   └── core/
+│       ├── alerts.html
+│       ├── cash_entries.html
+│       ├── customers.html
+│       ├── customer_detail.html
+│       ├── customer_form.html
 │       ├── dashboard.html
+│       ├── jcb_records.html
+│       ├── jcb_record_form.html
+│       ├── manual_alert_form.html
 │       ├── sales.html
 │       ├── sale_form.html
 │       ├── sale_detail.html
-│       ├── cash_entries.html
+│       ├── tipper_records.html
+│       ├── tipper_record_detail.html
+│       ├── tipper_record_form.html
+│       ├── transaction_detail.html
 │       ├── transaction_form.html
-│       ├── customers.html
-│       ├── customer_form.html
-│       ├── customer_detail.html
-│       ├── jcb_records.html
-│       ├── jcb_record_form.html
-│       ├── alerts.html
 │       └── partials/
+│           ├── alerts_badge.html
+│           ├── alerts_content.html
 │           ├── dashboard_content.html
 │           ├── customer_payment_section.html
-│           ├── sales_table.html
-│           ├── transaction_table.html
 │           ├── jcb_records_table.html
-│           ├── alerts_content.html
-│           ├── alerts_badge.html
-│           └── sale_receipts_panel.html
+│           ├── sales_table.html
+│           ├── sale_receipts_panel.html
+│           ├── tipper_records_table.html
+│           ├── transaction_table.html
 └── assets/
     ├── dashboard.png
-    ├── sales-2026-03-20-19_25_01.png
-    ├── sales-new-2026-03-20-19_25_21.png
-    ├── customers-2026-03-20-19_25_37.png
-    ├── customers-new-2026-03-20-19_30_21.png
-    ├── cash-entries-2026-03-20-19_24_38.png
-    ├── cash-entries-new-2026-03-20-19_24_51.png
-    ├── alerts-2026-03-20-19_30_43.png
-    ├── accounts-login-2026-03-20-19_31_14.png
-    └── accounts-logout-2026-03-20-19_30_58.png
+    ├── sales-*.png
+    ├── customers-*.png
+    ├── cash-entries-*.png
+    ├── alerts-*.png
+    └── accounts-*.png
 ```
 
 ## Data Model Overview
 
 Key entities in the application:
 
-- Customer: profile, credit terms, opening balance, credit balance, manual due amount
-- Sale: invoice, customer link, items, total amount, payment status, due date
-- Transaction: income/expense entries and linked receipts
-- CustomerPayment: customer-level payment event
-- PaymentAllocation: allocation records that map customer payment to invoices
-- JCBRecord: machine work details, hours, rates, expense item and amount
-- AlertNotification: overdue/upcoming timeline records
+- Customer: profile, terms, opening/credit balance, and manual due amount
+- Sale: invoice metadata, JSON item lines, due-date alerts, payment state, and status
+- TransactionCategory: predefined/custom category taxonomy for cash entries
+- Transaction: categorized income/expense, optional customer/sale/JCB links, and attachments
+- CustomerPayment: customer-level payment events with allocated and unallocated portions
+- PaymentAllocation: split allocation records from customer payment to one or many sales
+- JCBRecord: machine work logs with hour calculation, rates, totals, and operational expense
+- TipperItem: normalized item/entity for tipper tracking
+- TipperRecord: tipper expense and value-added transactional rows
+- AlertNotification: overdue/upcoming/manual timeline alerts with active/resolved state
 
 ## URL Surface
 
 Main routes include:
 
 - / (Dashboard)
-- /sales, /sales/new, /sales/<id>, /sales/<id>/edit
-- /cash-entries, /cash-entries/new, /cash-entries/<id>/edit
-- /customers, /customers/new, /customers/<id>, /customers/<id>/allocate-payment
-- /jcb-records, /jcb-records/new, /jcb-records/<id>/edit
-- /alerts
+- /sales, /sales/new, /sales/<id>, /sales/<id>/edit, /sales/<id>/delete
+- /sales/<id>/toggle-alert, /sales/<id>/mark-paid, /sales/<id>/receipts/add
+- /cash-entries, /cash-entries/new, /cash-entries/<id>, /cash-entries/<id>/edit, /cash-entries/<id>/delete
+- /customers, /customers/new, /customers/<id>, /customers/<id>/edit, /customers/<id>/delete
+- /customers/<id>/allocate-payment
+- /jcb-records, /jcb-records/new, /jcb-records/<id>/edit, /jcb-records/<id>/mark-paid, /jcb-records/<id>/delete
+- /tipper-records, /tipper-records/new, /tipper-records/<id>, /tipper-records/<id>/edit, /tipper-records/<id>/delete
+- /alerts, /alerts/badge
+- /alerts/manual/new, /alerts/manual/<id>/edit, /alerts/manual/<id>/delete
+- /alerts/notifications/<id>/resolve
 - /accounts/login, /accounts/logout
 
 ## Local Development Setup

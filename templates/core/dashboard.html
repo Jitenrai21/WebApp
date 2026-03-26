@@ -20,11 +20,11 @@
         >
             <label class="form-control">
                 <span class="label-text text-xs">From</span>
-                <input type="date" name="date_from" value="{{ filters.date_from }}" class="input input-bordered input-sm" aria-label="Filter from date" />
+                <input type="date" name="date_from" value="{{ filters.date_from|default:'' }}" class="input input-bordered input-sm" aria-label="Filter from date" />
             </label>
             <label class="form-control">
                 <span class="label-text text-xs">To</span>
-                <input type="date" name="date_to" value="{{ filters.date_to }}" class="input input-bordered input-sm" aria-label="Filter to date" />
+                <input type="date" name="date_to" value="{{ filters.date_to|default:'' }}" class="input input-bordered input-sm" aria-label="Filter to date" />
             </label>
             <div class="flex items-end">
                 <div class="grid w-full grid-cols-2 gap-2">
@@ -632,7 +632,10 @@
                     type: 'bar',
                     barMaxWidth: 42,
                     itemStyle: { borderRadius: [10, 10, 0, 0] },
-                    data: tipperSummaryValues,
+                    data: tipperSummaryValues.map((value, index) => ({
+                        value,
+                        itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
+                    })),
                     label: {
                         show: true,
                         position: 'top',

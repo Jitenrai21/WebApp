@@ -657,9 +657,15 @@ def _customer_payment_context(customer):
 
 @login_required
 def dashboard(request):
-	date_from = request.GET.get("date_from", "").strip()
-	date_to = request.GET.get("date_to", "").strip()
+	import datetime
+	today = datetime.date.today()
+	default_from = (today - datetime.timedelta(days=29)).isoformat()
+	default_to = today.isoformat()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
 	context = _dashboard_context(date_from=date_from, date_to=date_to)
+	# Pass filters for template default values
+	context["filters"] = {"date_from": date_from, "date_to": date_to}
 
 	if request.headers.get("HX-Request"):
 		return render(request, "core/partials/dashboard_content.html", context)
