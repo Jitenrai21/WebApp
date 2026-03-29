@@ -47,6 +47,7 @@ AUTO_SALE_INCOME_DESCRIPTION = "Auto-linked from paid sale"
 PAYMENT_ALLOCATION_CATEGORY = "Sales Payment Allocation"
 MANUAL_DUE_SETTLEMENT_CATEGORY = "Manual Due Settlement"
 CREDIT_TOPUP_CATEGORY = "Customer Credit Top-up"
+CREDIT_BALANCE_APPLIED_CATEGORY = "Credit Balance Applied"
 JCB_INCOME_CATEGORY = "JCB Income"
 JCB_EXPENSE_CATEGORY = "JCB Expense"
 UNASSIGNED_CUSTOMER_FILTER = "__unassigned__"
@@ -240,7 +241,9 @@ def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
 
 def _dashboard_context(date_from="", date_to=""):
 	sales_queryset = _dashboard_base_sales_queryset(date_from, date_to)
-	transactions_queryset = Transaction.objects.select_related("customer")
+	transactions_queryset = Transaction.objects.select_related("customer").exclude(
+		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
+	)
 	jcb_queryset = JCBRecord.objects.all()
 	tipper_queryset = TipperRecord.objects.select_related("item")
 	if date_from:
@@ -300,6 +303,7 @@ def _dashboard_context(date_from="", date_to=""):
 		"total_jcb_income": jcb_summary_raw["total_jcb_income"],
 		"total_jcb_expense": jcb_summary_raw["total_jcb_expense"],
 	}
+	jcb_summary["net_value"] = jcb_summary["total_jcb_income"] - jcb_summary["total_jcb_expense"]
 
 	today = timezone.localdate()
 	overdue_sales = [
@@ -641,7 +645,9 @@ def _customer_payment_context(customer):
 		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
 		total_paid=Coalesce(Sum("paid_amount"), Value(Decimal("0.00"))),
 	)
-	transaction_totals = customer.transactions.filter(type=TransactionType.INCOME).aggregate(
+	transaction_totals = customer.transactions.filter(type=TransactionType.INCOME).exclude(
+		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
+	).aggregate(
 		total_income=Coalesce(Sum("amount"), Value(Decimal("0.00"))),
 	)
 	due_amount = payment_totals["total_sales"] - payment_totals["total_paid"]
@@ -683,7 +689,9 @@ def dashboard(request):
 
 @login_required
 def cash_entries(request):
-	transactions = Transaction.objects.select_related("customer", "sale", "jcb_record", "category").all()
+	transactions = Transaction.objects.select_related("customer", "sale", "jcb_record", "category").exclude(
+		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
+	)
 
 	query = request.GET.get("q", "").strip()
 	date_from = request.GET.get("date_from", "").strip()
@@ -1450,6 +1458,8 @@ def customer_allocate_payment(request, pk):
 	raw_amount = request.POST.get("payment_amount", "").strip()
 	raw_date = request.POST.get("payment_date", "").strip()
 	payment_method = request.POST.get("payment_method", PaymentMethod.CASH).strip()
+	allocation_mode = request.POST.get("allocation_mode", "cash").strip()
+	use_credit_balance = allocation_mode == "credit"
 	sale_ids = request.POST.getlist("sale_ids")
 	notes = request.POST.get("notes", "").strip()
 	allocate_manual_due = request.POST.get("allocate_manual_due") == "on"
@@ -1459,8 +1469,17 @@ def customer_allocate_payment(request, pk):
 	except Exception:
 		payment_amount = Decimal("0.00")
 
-	if payment_amount <= 0:
+	if not use_credit_balance and payment_amount <= 0:
 		message = "Enter a valid payment amount greater than zero."
+		if request.headers.get("HX-Request"):
+			context = {"customer": customer, "allocation_error": message}
+			context.update(_customer_payment_context(customer))
+			return render(request, "core/partials/customer_payment_section.html", context)
+		messages.error(request, message)
+		return redirect("customer_detail", pk=customer.pk)
+
+	if use_credit_balance and customer.credit_balance <= 0:
+		message = "No available credit balance to allocate."
 		if request.headers.get("HX-Request"):
 			context = {"customer": customer, "allocation_error": message}
 			context.update(_customer_payment_context(customer))
@@ -1491,6 +1510,7 @@ def customer_allocate_payment(request, pk):
 			payment_date = timezone.localdate()
 
 	with db_transaction.atomic():
+		customer = Customer.objects.select_for_update().get(pk=customer.pk)
 		selected_sales = list(
 			Sale.objects.select_for_update()
 			.filter(customer=customer, status=RecordStatus.PENDING, id__in=sale_ids)
@@ -1506,15 +1526,19 @@ def customer_allocate_payment(request, pk):
 			messages.error(request, message)
 			return redirect("customer_detail", pk=customer.pk)
 
-		customer_payment = CustomerPayment.objects.create(
-			customer=customer,
-			payment_date=payment_date,
-			amount=payment_amount,
-			payment_method=payment_method,
-			notes=notes,
-		)
+		if use_credit_balance:
+			customer_payment = None
+			remaining_payment = customer.credit_balance
+		else:
+			customer_payment = CustomerPayment.objects.create(
+				customer=customer,
+				payment_date=payment_date,
+				amount=payment_amount,
+				payment_method=payment_method,
+				notes=notes,
+			)
+			remaining_payment = payment_amount
 
-		remaining_payment = payment_amount
 		allocated_total = Decimal("0.00")
 		fully_paid_count = 0
 		partial_count = 0
@@ -1531,22 +1555,33 @@ def customer_allocate_payment(request, pk):
 			if allocation_amount <= 0:
 				continue
 
-			receipt = Transaction.objects.create(
-				date=payment_date,
-				amount=allocation_amount,
-				type=TransactionType.INCOME,
-				category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY),
-				description=f"Allocated from customer payment to invoice {sale.invoice_number}",
-				customer=customer,
-				sale=sale,
-			)
+			if use_credit_balance:
+				receipt = Transaction.objects.create(
+					date=payment_date,
+					amount=allocation_amount,
+					type=TransactionType.INCOME,
+					category=_get_or_create_predefined_category(CREDIT_BALANCE_APPLIED_CATEGORY),
+					description=f"Allocated from customer credit balance to invoice {sale.invoice_number}",
+					customer=customer,
+					sale=sale,
+				)
+			else:
+				receipt = Transaction.objects.create(
+					date=payment_date,
+					amount=allocation_amount,
+					type=TransactionType.INCOME,
+					category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY),
+					description=f"Allocated from customer payment to invoice {sale.invoice_number}",
+					customer=customer,
+					sale=sale,
+				)
 
-			PaymentAllocation.objects.create(
-				customer_payment=customer_payment,
-				sale=sale,
-				transaction=receipt,
-				amount=allocation_amount,
-			)
+				PaymentAllocation.objects.create(
+					customer_payment=customer_payment,
+					sale=sale,
+					transaction=receipt,
+					amount=allocation_amount,
+				)
 
 			remaining_payment -= allocation_amount
 			allocated_total += allocation_amount
@@ -1568,26 +1603,39 @@ def customer_allocate_payment(request, pk):
 			# Allocate remaining payment to manual due amount
 			allocate_to_manual_due = min(remaining_payment, customer.manual_due_amount)
 			if allocate_to_manual_due > 0:
+				manual_due_category = (
+					CREDIT_BALANCE_APPLIED_CATEGORY if use_credit_balance else MANUAL_DUE_SETTLEMENT_CATEGORY
+				)
+				manual_due_description = (
+					"Allocated from customer credit balance to manual due settlement"
+					if use_credit_balance
+					else "Allocated from customer payment to manual due settlement"
+				)
 				Transaction.objects.create(
 					date=payment_date,
 					amount=allocate_to_manual_due,
 					type=TransactionType.INCOME,
-					category=_get_or_create_predefined_category(MANUAL_DUE_SETTLEMENT_CATEGORY),
-					description="Allocated from customer payment to manual due settlement",
+					category=_get_or_create_predefined_category(manual_due_category),
+					description=manual_due_description,
 					customer=customer,
 				)
 			customer.manual_due_amount -= allocate_to_manual_due
 			remaining_payment -= allocate_to_manual_due
 			allocated_total += allocate_to_manual_due
 
-		customer_payment.allocated_amount = allocated_total
-		customer_payment.unallocated_amount = remaining_payment
-		customer_payment.save(update_fields=["allocated_amount", "unallocated_amount", "updated_at"])
+		if customer_payment is not None:
+			customer_payment.allocated_amount = allocated_total
+			customer_payment.unallocated_amount = remaining_payment
+			customer_payment.save(update_fields=["allocated_amount", "unallocated_amount", "updated_at"])
+		elif allocated_total > 0:
+			customer.credit_balance = max(Decimal("0.00"), customer.credit_balance - allocated_total)
+			customer.save(update_fields=["credit_balance", "manual_due_amount", "updated_at"])
+			remaining_payment = customer.credit_balance
 
-		if manual_due_to_allocate and customer.manual_due_amount < manual_due_amount_before:
+		if (not use_credit_balance) and manual_due_to_allocate and customer.manual_due_amount < manual_due_amount_before:
 			customer.save(update_fields=["manual_due_amount", "updated_at"])
 
-		if remaining_payment > 0:
+		if (not use_credit_balance) and remaining_payment > 0:
 			Transaction.objects.create(
 				date=payment_date,
 				amount=remaining_payment,
@@ -1598,15 +1646,23 @@ def customer_allocate_payment(request, pk):
 			)
 			customer.credit_balance = customer.credit_balance + remaining_payment
 			customer.save(update_fields=["credit_balance", "updated_at"])
-		else:
+		elif not use_credit_balance:
 			customer.save()
 
-	summary_text = (
-		f"Payment allocated: NPR {allocated_total}. "
-		f"{fully_paid_count} fully paid, {partial_count} partially paid."
-	)
-	if remaining_payment > 0:
-		summary_text += f" NPR {remaining_payment} added to customer credit."
+	if use_credit_balance:
+		summary_text = (
+			f"Credit allocated: NPR {allocated_total}. "
+			f"{fully_paid_count} fully paid, {partial_count} partially paid."
+		)
+		if customer.credit_balance > 0:
+			summary_text += f" Remaining credit balance: NPR {customer.credit_balance}."
+	else:
+		summary_text = (
+			f"Payment allocated: NPR {allocated_total}. "
+			f"{fully_paid_count} fully paid, {partial_count} partially paid."
+		)
+		if remaining_payment > 0:
+			summary_text += f" NPR {remaining_payment} added to customer credit."
 
 	if request.headers.get("HX-Request"):
 		context = {

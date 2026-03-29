@@ -99,7 +99,17 @@
 
                 <div class="xl:col-span-2 flex items-center justify-end gap-3">
                     <p class="text-xs opacity-70 hidden sm:block">Allocation follows invoice order.</p>
-                    <button type="submit" class="btn btn-primary" {% if not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
+                    <button
+                        type="submit"
+                        name="allocation_mode"
+                        value="credit"
+                        formnovalidate
+                        class="btn btn-outline"
+                        {% if customer.credit_balance <= 0 or not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}
+                    >
+                        Apply Credit Balance
+                    </button>
+                    <button type="submit" name="allocation_mode" value="cash" class="btn btn-primary" {% if not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
                 </div>
             </form>
         </div>

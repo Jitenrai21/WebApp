@@ -79,10 +79,10 @@
                 <a href="{% url 'jcb_records' %}" class="btn btn-outline btn-sm">View All JCB Records</a>
             </div>
             <div class="grid gap-4 lg:grid-cols-3">
-                <div class="cf-section lg:col-span-2">
-                    <div class="card-body">
+                <div class="cf-section lg:col-span-2 h-full">
+                    <div class="card-body h-full flex flex-col">
                         <h3 class="card-title text-lg">JCB Income, Expense, and Hours</h3>
-                        <div class="h-64 cf-chart-shell">
+                        <div class="cf-chart-shell flex-1 min-h-64 lg:min-h-0">
                             <div id="jcb-summary-chart" class="h-full w-full" role="img" tabindex="0" aria-label="JCB summary chart"></div>
                             <p class="sr-only">JCB summary chart combining income, expense, and total work hours.</p>
                         </div>
@@ -103,6 +103,11 @@
                         <p class="kpi-label !mt-0">Total Work Hours</p>
                         <p class="kpi-value !mt-0">{{ jcb_summary.total_work_hours }} hrs</p>
                         <p class="kpi-note">Total JCB hours in selected period</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--sales">
+                        <p class="kpi-label !mt-0">Net Value</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ jcb_summary.net_value }}">NPR {{ jcb_summary.net_value }}</p>
+                        <p class="kpi-note">JCB Income minus JCB Expense</p>
                     </div>
                 </div>
             </div>
@@ -141,10 +146,10 @@
                 <a href="{% url 'tipper_records' %}" class="btn btn-outline btn-sm">View All Tipper Records</a>
             </div>
             <div class="grid gap-4 lg:grid-cols-3">
-                <div class="cf-section lg:col-span-2">
-                    <div class="card-body">
+                <div class="cf-section lg:col-span-2 h-full">
+                    <div class="card-body h-full flex flex-col">
                         <h3 class="card-title text-lg">Tipper Totals Summary</h3>
-                        <div class="h-64 cf-chart-shell">
+                        <div class="cf-chart-shell flex-1 min-h-64 lg:min-h-0">
                             <div id="tipper-summary-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Tipper expense versus value added chart"></div>
                             <p class="sr-only">Bar chart comparing overall tipper expense and value added totals.</p>
                         </div>

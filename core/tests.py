@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import SaleForm
-from .models import AlertNotification, AlertSource, AlertType, Customer, CustomerType, Sale, Transaction, TransactionType
+from .models import AlertNotification, AlertSource, AlertType, Customer, CustomerType, Sale, Transaction, TransactionCategory, TransactionType
 
 
 class SalesWorkflowTests(TestCase):
@@ -338,6 +338,122 @@ class AlertsWorkflowTests(TestCase):
 		delete_response = self.client.post(reverse("manual_alert_delete", args=[manual_alert.pk]))
 		self.assertEqual(delete_response.status_code, 302)
 		self.assertFalse(AlertNotification.objects.filter(pk=manual_alert.pk).exists())
+
+
+class CustomerDueCreditBehaviorTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="customer-due", password="pass1234")
+		self.customer = Customer.objects.create(
+			name="Credit Test Customer",
+			type=CustomerType.REGULAR,
+			credit_balance=Decimal("500.00"),
+		)
+		Sale.objects.create(
+			invoice_number="INV-CREDIT-001",
+			customer=self.customer,
+			total_amount=Decimal("1000.00"),
+			paid_amount=Decimal("0.00"),
+			due_date=timezone.localdate(),
+			items=[{"item": "Item A", "quantity": 1, "price": 1000}],
+		)
+
+	def test_due_amount_is_not_auto_reduced_by_credit_balance(self):
+		self.client.login(username="customer-due", password="pass1234")
+		response = self.client.get(reverse("customer_detail", args=[self.customer.pk]))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "NPR 1000.00")
+		self.assertContains(response, "NPR 500.00")
+
+	def test_apply_credit_balance_allocates_to_sale(self):
+		self.client.login(username="customer-due", password="pass1234")
+		sale = Sale.objects.get(invoice_number="INV-CREDIT-001")
+
+		response = self.client.post(
+			reverse("customer_allocate_payment", args=[self.customer.pk]),
+			data={
+				"allocation_mode": "credit",
+				"payment_date": timezone.localdate().isoformat(),
+				"sale_ids": [str(sale.id)],
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		sale.refresh_from_db()
+		self.customer.refresh_from_db()
+		self.assertEqual(sale.paid_amount, Decimal("500.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+
+		credit_applied_tx = Transaction.objects.filter(
+			customer=self.customer,
+			sale=sale,
+			type=TransactionType.INCOME,
+			category__name="Credit Balance Applied",
+		).first()
+		self.assertIsNotNone(credit_applied_tx)
+		self.assertEqual(credit_applied_tx.amount, Decimal("500.00"))
+
+	def test_credit_applied_entries_not_double_counted_in_total_payment(self):
+		self.client.login(username="customer-due", password="pass1234")
+		sale = Sale.objects.get(invoice_number="INV-CREDIT-001")
+
+		self.client.post(
+			reverse("customer_allocate_payment", args=[self.customer.pk]),
+			data={
+				"allocation_mode": "credit",
+				"payment_date": timezone.localdate().isoformat(),
+				"sale_ids": [str(sale.id)],
+			},
+		)
+
+		response = self.client.get(reverse("customer_detail", args=[self.customer.pk]))
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["total_payment"], Decimal("0.00"))
+
+	def test_credit_applied_entries_hidden_from_cash_entries(self):
+		self.client.login(username="customer-due", password="pass1234")
+		sale = Sale.objects.get(invoice_number="INV-CREDIT-001")
+
+		self.client.post(
+			reverse("customer_allocate_payment", args=[self.customer.pk]),
+			data={
+				"allocation_mode": "credit",
+				"payment_date": timezone.localdate().isoformat(),
+				"sale_ids": [str(sale.id)],
+			},
+		)
+
+		response = self.client.get(reverse("cash_entries"))
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, "Credit Balance Applied")
+
+	def test_credit_applied_entries_excluded_from_dashboard_income(self):
+		self.client.login(username="customer-due", password="pass1234")
+		sale = Sale.objects.get(invoice_number="INV-CREDIT-001")
+		payment_category = TransactionCategory.objects.create(name="Sales Payment Allocation", is_predefined=True)
+
+		# Actual new cash inflow (should count)
+		Transaction.objects.create(
+			customer=self.customer,
+			date=timezone.localdate(),
+			amount=Decimal("200.00"),
+			type=TransactionType.INCOME,
+			category=payment_category,
+		)
+
+		# Internal credit application (should not count in dashboard income)
+		self.client.post(
+			reverse("customer_allocate_payment", args=[self.customer.pk]),
+			data={
+				"allocation_mode": "credit",
+				"payment_date": timezone.localdate().isoformat(),
+				"sale_ids": [str(sale.id)],
+			},
+		)
+
+		response = self.client.get(reverse("dashboard"))
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["kpis"]["total_income"], Decimal("200.00"))
 
 	def test_unassigned_sale_appears_in_alerts_and_timeline(self):
 		self.client.login(username="alert-user", password="pass1234")
