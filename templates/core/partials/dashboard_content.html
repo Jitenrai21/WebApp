@@ -51,6 +51,45 @@
         <div class="card-body gap-4">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
+                    <h2 class="card-title text-xl">Income vs Expense</h2>
+                    <p class="text-sm text-base-content/70">Overall income and expense comparison for the selected date range.</p>
+                </div>
+            </div>
+            <div class="grid gap-4 lg:grid-cols-3">
+                <div class="cf-section lg:col-span-2 h-full">
+                    <div class="card-body h-full flex flex-col">
+                        <h3 class="card-title text-lg">Income vs Expense</h3>
+                        <div class="cf-chart-shell flex-1 min-h-64 lg:min-h-0">
+                            <div id="income-expense-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Income versus expense chart"></div>
+                            <p class="sr-only">Income versus expense comparison chart with interactive legend toggles.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                    <div class="cf-kpi-card cf-kpi-card--income">
+                        <p class="kpi-label !mt-0">Total Income</p>
+                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ kpis.total_income }}">NPR {{ kpis.total_income }}</p>
+                        <p class="kpi-note">All recorded incoming cash</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--expense">
+                        <p class="kpi-label !mt-0">Total Expenses</p>
+                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ kpis.total_expenses }}">NPR {{ kpis.total_expenses }}</p>
+                        <p class="kpi-note">All recorded outgoing cash</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--sales">
+                        <p class="kpi-label !mt-0">Net Income</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ kpis.net_income }}">NPR {{ kpis.net_income }}</p>
+                        <p class="kpi-note">Income minus Expense</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cf-section">
+        <div class="card-body gap-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
                     <h2 class="card-title text-xl">JCB Records Summary</h2>
                     <p class="text-sm text-base-content/70">Income, expense, and total work hours for the selected date range.</p>
                 </div>
@@ -153,18 +192,9 @@
             </div>
         </div>
     </div>
-    
-    <div class="grid gap-4 lg:grid-cols-2">
-        <div class="cf-section">
-            <div class="card-body">
-                <h2 class="card-title text-xl">Income vs Expense</h2>
-                <div class="h-72 cf-chart-shell">
-                    <div id="income-expense-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Income versus expense chart"></div>
-                    <p class="sr-only">Income versus expense comparison chart with interactive legend toggles.</p>
-                </div>
-            </div>
-        </div>
 
+
+    <div class="grid gap-4 lg:grid-cols-1">
         <div class="cf-section">
             <div class="card-body">
                 <h2 class="card-title text-xl">Top Customers by Sales</h2>

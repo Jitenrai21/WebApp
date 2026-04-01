@@ -391,12 +391,15 @@ def _dashboard_context(date_from="", date_to=""):
 	]
 	tipper_summary["net_value"] = tipper_summary["total_value_added"] - tipper_summary["total_expense"]
 
+	net_income = kpi_income_expense["total_income"] - kpi_income_expense["total_expenses"]
+
 	return {
 		"kpis": {
 			"total_sales": kpi_sales["total_sales"],
 			"received_total": received_total,
 			"total_income": kpi_income_expense["total_income"],
 			"total_expenses": kpi_income_expense["total_expenses"],
+			"net_income": net_income,
 			"outstanding_receivables": outstanding_receivables,
 			"overdue_count": overdue_count,
 			"overdue_amount": overdue_amount,
