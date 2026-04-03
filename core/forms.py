@@ -361,10 +361,12 @@ class TipperRecordForm(forms.ModelForm):
             "date",
             "item",
             "record_type",
+            "description",
             "amount",
         ]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
+            "description": forms.Textarea(attrs={"rows": 3, "placeholder": "Optional notes for this record"}),
             "amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 

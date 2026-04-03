@@ -10,6 +10,7 @@
                     <th>Date</th>
                     <th>Item</th>
                     <th>Type</th>
+                    <th>Description</th>
                     <th>Amount</th>
                     <th class="text-right whitespace-nowrap">Actions</th>
                 </tr>
@@ -28,6 +29,13 @@
                             {% endif %}
                             {{ record.get_record_type_display }}
                         </span>
+                    </td>
+                    <td>
+                        {% if record.description %}
+                        {{ record.description }}
+                        {% else %}
+                        <span class="text-base-content/50">&mdash;</span>
+                        {% endif %}
                     </td>
                     <td>NPR {{ record.amount }}</td>
                     <td class="text-right align-middle">
@@ -76,7 +84,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="py-0">
+                    <td colspan="6" class="py-0">
                         <div class="cf-empty">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 5a2 2 0 012-2h8a2 2 0 012 2v3h1a3 3 0 013 3v2a2 2 0 01-2 2h-1v1a1 1 0 11-2 0v-1H7v1a1 1 0 11-2 0v-1H4a2 2 0 01-2-2V5z" /></svg>
                             <p>No tipper records found for the selected filters.</p>

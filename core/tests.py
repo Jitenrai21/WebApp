@@ -9,7 +9,20 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import SaleForm
-from .models import AlertNotification, AlertSource, AlertType, Customer, CustomerType, Sale, Transaction, TransactionCategory, TransactionType
+from .models import (
+	AlertNotification,
+	AlertSource,
+	AlertType,
+	Customer,
+	CustomerType,
+	Sale,
+	TipperItem,
+	TipperRecord,
+	TipperRecordType,
+	Transaction,
+	TransactionCategory,
+	TransactionType,
+)
 
 
 class SalesWorkflowTests(TestCase):
@@ -485,3 +498,102 @@ class CustomerDueCreditBehaviorTests(TestCase):
 		).first()
 		self.assertIsNotNone(notification)
 		self.assertIsNone(notification.customer)
+
+
+class TipperRecordsDescriptionTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="tipper-user", password="pass1234")
+		self.item = TipperItem.objects.create(name="Gravel")
+
+	def test_create_tipper_record_with_description(self):
+		self.client.login(username="tipper-user", password="pass1234")
+
+		response = self.client.post(
+			reverse("tipper_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"item": str(self.item.id),
+				"record_type": TipperRecordType.VALUE_ADDED,
+				"description": "Loaded soil from site A to site B.",
+				"amount": "1500.00",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = TipperRecord.objects.get(item=self.item)
+		self.assertEqual(record.description, "Loaded soil from site A to site B.")
+
+	def test_description_optional_for_tipper_record(self):
+		self.client.login(username="tipper-user", password="pass1234")
+
+		response = self.client.post(
+			reverse("tipper_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"item": str(self.item.id),
+				"record_type": TipperRecordType.EXPENSE,
+				"description": "",
+				"amount": "250.00",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = TipperRecord.objects.get(item=self.item)
+		self.assertEqual(record.description, "")
+
+	def test_edit_tipper_record_description(self):
+		self.client.login(username="tipper-user", password="pass1234")
+		record = TipperRecord.objects.create(
+			date=timezone.localdate(),
+			item=self.item,
+			record_type=TipperRecordType.EXPENSE,
+			amount=Decimal("320.00"),
+		)
+
+		response = self.client.post(
+			reverse("tipper_record_edit", args=[record.pk]),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"item": str(self.item.id),
+				"record_type": TipperRecordType.EXPENSE,
+				"description": "Fuel refill for route 3.",
+				"amount": "320.00",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record.refresh_from_db()
+		self.assertEqual(record.description, "Fuel refill for route 3.")
+
+	def test_tipper_list_search_matches_description(self):
+		self.client.login(username="tipper-user", password="pass1234")
+		TipperRecord.objects.create(
+			date=timezone.localdate(),
+			item=self.item,
+			record_type=TipperRecordType.VALUE_ADDED,
+			description="Night shift haul",
+			amount=Decimal("900.00"),
+		)
+
+		response = self.client.get(reverse("tipper_records"), {"q": "night shift"})
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Night shift haul")
+
+	def test_tipper_detail_and_list_show_placeholder_when_description_empty(self):
+		self.client.login(username="tipper-user", password="pass1234")
+		record = TipperRecord.objects.create(
+			date=timezone.localdate(),
+			item=self.item,
+			record_type=TipperRecordType.EXPENSE,
+			amount=Decimal("100.00"),
+		)
+
+		list_response = self.client.get(reverse("tipper_records"))
+		self.assertEqual(list_response.status_code, 200)
+		self.assertContains(list_response, "&mdash;", html=False)
+
+		detail_response = self.client.get(reverse("tipper_record_detail", args=[record.pk]))
+		self.assertEqual(detail_response.status_code, 200)
+		self.assertContains(detail_response, "Description:")
+		self.assertContains(detail_response, "&mdash;", html=False)

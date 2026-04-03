@@ -255,6 +255,7 @@ class TipperRecord(TimeStampedModel):
         related_name="tipper_records",
     )
     record_type = models.CharField(max_length=20, choices=TipperRecordType.choices)
+    description = models.TextField(blank=True, null=True)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
 
     class Meta:

@@ -18,7 +18,7 @@ It is designed for businesses that need practical day-to-day control over:
 - Customer payment allocation across multiple pending invoices with allocation history
 - Cash entry management (income and expense) with categories, links, and optional attachments
 - JCB operational records with hour calculation, income/expense summaries, and paid-state flow
-- Tipper records module with expense vs value-added tracking, detail view, and analytics cards
+- Tipper records module with expense vs value-added tracking, optional descriptions, detail view, and analytics cards
 - Alert center with overdue/upcoming pipeline, timeline history, and status resolution
 - Manual alert creation, editing, and deletion for custom reminders
 - Alert badge that emphasizes unresolved overdue items for quick action
@@ -128,7 +128,7 @@ Key entities in the application:
 - PaymentAllocation: split allocation records from customer payment to one or many sales
 - JCBRecord: machine work logs with hour calculation, rates, totals, and operational expense
 - TipperItem: normalized item/entity for tipper tracking
-- TipperRecord: tipper expense and value-added transactional rows
+- TipperRecord: tipper expense and value-added transactional rows with optional description notes
 - AlertNotification: overdue/upcoming/manual timeline alerts with active/resolved state
 
 ## URL Surface

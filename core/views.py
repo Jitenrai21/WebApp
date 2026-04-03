@@ -1023,7 +1023,7 @@ def tipper_records(request):
 	sort = request.GET.get("sort", "-date")
 
 	if query:
-		queryset = queryset.filter(Q(item__name__icontains=query))
+		queryset = queryset.filter(Q(item__name__icontains=query) | Q(description__icontains=query))
 	if date_from:
 		queryset = queryset.filter(date__gte=date_from)
 	if date_to:

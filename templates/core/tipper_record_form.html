@@ -39,6 +39,11 @@
                 {{ form.record_type }}
                 {% if form.record_type.errors %}<p class="text-error text-sm mt-1">{{ form.record_type.errors|join:', ' }}</p>{% endif %}
             </div>
+            <div class="form-control md:col-span-2">
+                <label class="label" for="id_description"><span class="label-text">Description <span class="text-base-content/60">(optional)</span></span></label>
+                {{ form.description }}
+                {% if form.description.errors %}<p class="text-error text-sm mt-1">{{ form.description.errors|join:', ' }}</p>{% endif %}
+            </div>
             <div class="form-control">
                 <label class="label" for="id_amount"><span class="label-text">Amount</span></label>
                 {{ form.amount }}

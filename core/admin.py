@@ -155,9 +155,9 @@ class TipperItemAdmin(admin.ModelAdmin):
 
 @admin.register(TipperRecord)
 class TipperRecordAdmin(admin.ModelAdmin):
-    list_display = ("date", "item", "record_type", "amount")
+    list_display = ("date", "item", "record_type", "description", "amount")
     list_filter = ("record_type", "item", "date")
-    search_fields = ("item__name",)
+    search_fields = ("item__name", "description")
     autocomplete_fields = ("item",)
     date_hierarchy = "date"
     ordering = ("-date", "-created_at")

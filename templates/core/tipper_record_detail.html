@@ -31,6 +31,14 @@
                         </span>
                     </p>
                     <p><span class="font-semibold">Amount:</span> NPR {{ tipper_record.amount }}</p>
+                    <p class="md:col-span-2">
+                        <span class="font-semibold">Description:</span>
+                        {% if tipper_record.description %}
+                        {{ tipper_record.description }}
+                        {% else %}
+                        &mdash;
+                        {% endif %}
+                    </p>
                 </div>
             </div>
         </div>
