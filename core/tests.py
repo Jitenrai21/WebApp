@@ -373,6 +373,7 @@ class AlertsWorkflowTests(TestCase):
 			total_amount=Decimal("1000.00"),
 			due_date=today - timedelta(days=2),
 			date=today - timedelta(days=10),
+			notes="Overdue sale note",
 			items=[{"item": "A", "quantity": 1, "price": 1000}],
 		)
 		self.upcoming_sale = Sale.objects.create(
@@ -400,6 +401,14 @@ class AlertsWorkflowTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "NPR 1000.00")
 		self.assertNotContains(response, "NPR 800.00")
+
+	def test_alerts_table_includes_invoice_link_and_sale_description(self):
+		self.client.login(username="alert-user", password="pass1234")
+		response = self.client.get(reverse("alerts"), {"type": "overdue"})
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, reverse("sale_detail", args=[self.overdue_sale.pk]))
+		self.assertContains(response, self.overdue_sale.invoice_number)
+		self.assertContains(response, "Overdue sale note")
 
 	def test_badge_count_and_viewed_mark_read(self):
 		self.client.login(username="alert-user", password="pass1234")

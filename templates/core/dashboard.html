@@ -215,6 +215,56 @@
         });
     }
 
+    function attachBarKeyboardNavigation(chart, element, labels, values) {
+        if (!chart || !element || !Array.isArray(labels) || !labels.length) {
+            return;
+        }
+
+        let activeIndex = 0;
+        const maxIndex = Math.max(0, labels.length - 1);
+
+        function focusIndex(index) {
+            activeIndex = Math.min(Math.max(index, 0), maxIndex);
+            chart.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+            chart.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: activeIndex });
+            chart.dispatchAction({
+                type: 'showTip',
+                seriesIndex: 0,
+                dataIndex: activeIndex,
+                position: 'right'
+            });
+
+            const amount = formatNpr(values[activeIndex]);
+            element.setAttribute('aria-label', `Top customers by sales chart. ${labels[activeIndex]} with ${amount}.`);
+        }
+
+        element.addEventListener('focus', () => {
+            focusIndex(activeIndex);
+        });
+
+        element.addEventListener('blur', () => {
+            chart.dispatchAction({ type: 'hideTip' });
+            chart.dispatchAction({ type: 'downplay', seriesIndex: 0 });
+        });
+
+        element.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                focusIndex(activeIndex + 1);
+                return;
+            }
+            if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                event.preventDefault();
+                focusIndex(activeIndex - 1);
+                return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                focusIndex(activeIndex);
+            }
+        });
+    }
+
     function sanitizeTopCustomers(labels, values) {
         const pairs = (labels || []).map((label, index) => ({
             label,
@@ -439,14 +489,27 @@
             const labels = ranked.map((item) => item.label);
             const values = ranked.map((item) => item.value);
             const total = values.reduce((sum, value) => sum + value, 0);
+            const topCustomerPalette = ['#1D70B8', '#3BA99C', '#E09F3E', '#E36464', '#7A7EE6', '#3E5C76', '#6CC4A1', '#2C6693'];
 
             const topCustomersChart = echarts.init(topCanvas, null, { renderer: 'canvas' });
             topCustomersChart.setOption({
                 animationDuration: 960,
-                grid: { left: 120, right: 46, top: 24, bottom: 22 },
+                legend: {
+                    top: 0,
+                    left: 'left',
+                    itemHeight: 10,
+                    icon: 'roundRect',
+                    textStyle: { color: '#31445F' },
+                    data: ['Sales Amount']
+                },
+                grid: { left: 126, right: 28, top: 42, bottom: 36, containLabel: true },
                 xAxis: {
                     type: 'value',
                     splitNumber: 4,
+                    name: 'Sales Amount (NPR)',
+                    nameLocation: 'middle',
+                    nameGap: 28,
+                    nameTextStyle: { color: '#516178', fontWeight: 600 },
                     axisLabel: {
                         color: '#516178',
                         hideOverlap: true,
@@ -458,9 +521,16 @@
                 yAxis: {
                     type: 'category',
                     inverse: true,
+                    name: 'Customers',
+                    nameLocation: 'middle',
+                    nameGap: 96,
+                    nameRotate: 90,
+                    nameTextStyle: { color: '#516178', fontWeight: 600 },
                     data: labels,
                     axisLabel: {
-                        color: '#31445F'
+                        color: '#31445F',
+                        width: 102,
+                        overflow: 'truncate'
                     },
                     axisTick: { show: false },
                     axisLine: { show: false }
@@ -477,23 +547,18 @@
                     }
                 },
                 series: [{
+                    name: 'Sales Amount',
                     type: 'bar',
                     data: values.map((value, index) => ({
                         value,
                         itemStyle: {
                             borderRadius: [0, 10, 10, 0],
-                            color: index < 3
-                                ? new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                                    { offset: 0, color: '#1D70B8' },
-                                    { offset: 1, color: '#3BA99C' }
-                                ])
-                                : new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                                    { offset: 0, color: '#8AA8C8' },
-                                    { offset: 1, color: '#C3D2E3' }
-                                ])
+                            color: topCustomerPalette[index % topCustomerPalette.length]
                         }
                     })),
-                    barMaxWidth: 20,
+                    barMinHeight: 6,
+                    barMaxWidth: 18,
+                    barCategoryGap: '44%',
                     label: {
                         show: true,
                         position: 'right',
@@ -504,6 +569,7 @@
                 }]
             });
             registerChart('topCustomers', topCustomersChart, topCanvas);
+            attachBarKeyboardNavigation(topCustomersChart, topCanvas, labels, values);
         }
 
         if (jcbSummaryCanvas && jcbSummaryLabels && jcbSummaryValues) {

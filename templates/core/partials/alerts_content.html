@@ -16,6 +16,8 @@
                     <tr>
                         <th>Type</th>
                         <th>Source</th>
+                        <th>Invoice</th>
+                        <th>Description</th>
                         <th>Customer</th>
                         <th>Due Date</th>
                         <th>Amount</th>
@@ -39,6 +41,20 @@
                             <span class="badge badge-outline">Transaction</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if item.source == 'sale' and item.invoice_number %}
+                            <a href="{% url 'sale_detail' item.object_id %}" class="link link-primary">{{ item.invoice_number }}</a>
+                            {% else %}
+                            <span class="text-base-content/50">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.source == 'sale' and item.sale_description %}
+                            {{ item.sale_description }}
+                            {% else %}
+                            <span class="text-base-content/50">&mdash;</span>
+                            {% endif %}
+                        </td>
                         <td>{% if item.customer %}{{ item.customer.name }}{% else %}-{% endif %}</td>
                         <td>{{ item.due_date }}</td>
                         <td>{% if item.source == 'manual' %}N/A{% else %}NPR {{ item.amount }}{% endif %}</td>
@@ -46,7 +62,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="py-0">
+                        <td colspan="8" class="py-0">
                             <div class="cf-empty">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 00-5 5v2.586l-.707.707A1 1 0 005 12h10a1 1 0 00.707-1.707L15 9.586V7a5 5 0 00-5-5z" /><path d="M10 18a3 3 0 01-2.995-2.824L7 15h6a3 3 0 01-2.824 2.995L10 18z" /></svg>
                                 <p>No alerts match these filters.</p>

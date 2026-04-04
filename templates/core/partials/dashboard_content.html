@@ -198,9 +198,9 @@
         <div class="cf-section">
             <div class="card-body">
                 <h2 class="card-title text-xl">Top Customers by Sales</h2>
-                <div class="h-72 cf-chart-shell">
-                    <div id="top-customers-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Top customers by sales chart"></div>
-                    <p class="sr-only">Horizontal ranking chart of top customers and their sales contributions.</p>
+                <div class="h-80 sm:h-72 cf-chart-shell">
+                    <div id="top-customers-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Top customers by sales chart" aria-describedby="top-customers-chart-help"></div>
+                    <p id="top-customers-chart-help" class="sr-only">Horizontal ranking chart of top customers and their sales contributions. Use the arrow keys to move between bars and press Enter to lock focus on a selection.</p>
                 </div>
             </div>
         </div>
@@ -208,9 +208,11 @@
 
     <div class="grid gap-4 xl:grid-cols-3">
         <div class="cf-table-shell">
-            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="card-title">Recent Sales</h2>
-                <a href="{% url 'sales' %}" class="btn btn-outline btn-sm">View All Sales</a>
+            <div class="card-body pb-0">
+                <div class="flex items-start justify-between gap-3 border-b border-base-200/80 pb-3">
+                    <h2 class="card-title text-lg leading-tight">Recent Sales</h2>
+                    <a href="{% url 'sales' %}" class="btn btn-outline btn-xs sm:btn-sm whitespace-nowrap">View All</a>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
@@ -252,9 +254,11 @@
         </div>
 
         <div class="cf-table-shell">
-            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="card-title">Recent Cash Entries</h2>
-                <a href="{% url 'cash_entries' %}" class="btn btn-outline btn-sm">View All Cash Entries</a>
+            <div class="card-body pb-0">
+                <div class="flex items-start justify-between gap-3 border-b border-base-200/80 pb-3">
+                    <h2 class="card-title text-lg leading-tight">Recent Cash Entries</h2>
+                    <a href="{% url 'cash_entries' %}" class="btn btn-outline btn-xs sm:btn-sm whitespace-nowrap">View All</a>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
@@ -288,9 +292,11 @@
         </div>
 
         <div class="cf-table-shell">
-            <div class="card-body pb-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="card-title">New Customers</h2>
-                <a href="{% url 'customers' %}" class="btn btn-outline btn-sm">View All Customers</a>
+            <div class="card-body pb-0">
+                <div class="flex items-start justify-between gap-3 border-b border-base-200/80 pb-3">
+                    <h2 class="card-title text-lg leading-tight">New Customers</h2>
+                    <a href="{% url 'customers' %}" class="btn btn-outline btn-xs sm:btn-sm whitespace-nowrap">View All</a>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="table table-zebra table-sm">
