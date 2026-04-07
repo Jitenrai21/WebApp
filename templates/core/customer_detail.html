@@ -75,7 +75,7 @@
                     <tbody>
                         {% for row in sales_rows %}
                         <tr>
-                            <td>{{ row.sale.invoice_number }}</td>
+                            <td><a href="{% url 'sale_detail' row.sale.id %}" class="link link-primary">{{ row.sale.invoice_number }}</a></td>
                             <td>{{ row.sale.date }}</td>
                             <td>NPR {{ row.sale.total_amount }}</td>
                             <td>NPR {{ row.sale.paid_amount }}</td>

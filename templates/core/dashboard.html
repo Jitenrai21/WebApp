@@ -628,12 +628,11 @@
 
         if (jcbSummaryCanvas && jcbSummaryLabels && jcbSummaryValues) {
             const jcbSeries = splitJcbSeries(jcbSummaryLabels, jcbSummaryValues);
-            const hoursTarget = Math.max(0, ...jcbSeries.hours.map((value) => value || 0)) * 0.8;
 
             const jcbChart = echarts.init(jcbSummaryCanvas, null, { renderer: 'canvas' });
             jcbChart.setOption({
                 animationDuration: 920,
-                color: [chartPalette.mint, chartPalette.coral, chartPalette.violet],
+                color: [chartPalette.mint, chartPalette.coral],
                 legend: {
                     top: 0,
                     textStyle: { color: '#31445F' }
@@ -647,11 +646,7 @@
                     formatter(params) {
                         const lines = [params[0].axisValue];
                         params.forEach((item) => {
-                            if (item.seriesName === 'Hours') {
-                                lines.push(`${item.marker}${item.seriesName}: ${numberFrom(item.value).toLocaleString('en-US')} hrs`);
-                            } else {
-                                lines.push(`${item.marker}${item.seriesName}: ${formatNpr(item.value)}`);
-                            }
+                            lines.push(`${item.marker}${item.seriesName}: ${formatNpr(item.value)}`);
                         });
                         return lines.join('<br/>');
                     }
@@ -663,25 +658,16 @@
                     axisLine: { lineStyle: { color: '#D4DFEA' } },
                     axisLabel: { color: '#516178' }
                 },
-                yAxis: [
-                    {
-                        type: 'value',
-                        name: 'NPR',
-                        axisLabel: { color: '#516178', formatter: (value) => formatNprAxis(value) },
-                        splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } }
-                    },
-                    {
-                        type: 'value',
-                        name: 'Hours',
-                        axisLabel: { color: '#516178' },
-                        splitLine: { show: false }
-                    }
-                ],
+                yAxis: {
+                    type: 'value',
+                    name: 'NPR',
+                    axisLabel: { color: '#516178', formatter: (value) => formatNprAxis(value) },
+                    splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } }
+                },
                 series: [
                     {
                         name: 'Income',
                         type: 'bar',
-                        yAxisIndex: 0,
                         barMaxWidth: 26,
                         itemStyle: { borderRadius: [8, 8, 0, 0] },
                         data: jcbSeries.income
@@ -689,31 +675,9 @@
                     {
                         name: 'Expense',
                         type: 'bar',
-                        yAxisIndex: 0,
                         barMaxWidth: 26,
                         itemStyle: { borderRadius: [8, 8, 0, 0] },
                         data: jcbSeries.expense
-                    },
-                    {
-                        name: 'Hours',
-                        type: 'line',
-                        yAxisIndex: 1,
-                        smooth: 0.38,
-                        symbolSize: 8,
-                        lineStyle: { width: 3, shadowBlur: 12, shadowColor: 'rgba(122, 126, 230, 0.28)' },
-                        areaStyle: {
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                { offset: 0, color: 'rgba(122, 126, 230, 0.24)' },
-                                { offset: 1, color: 'rgba(122, 126, 230, 0.04)' }
-                            ])
-                        },
-                        markLine: {
-                            symbol: 'none',
-                            lineStyle: { type: 'dashed', color: chartPalette.amber },
-                            label: { formatter: 'Target Hours' },
-                            data: hoursTarget > 0 ? [{ yAxis: hoursTarget }] : []
-                        },
-                        data: jcbSeries.hours
                     }
                 ]
             });
