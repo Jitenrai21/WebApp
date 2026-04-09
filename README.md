@@ -13,16 +13,18 @@ It is designed for businesses that need practical day-to-day control over:
 ## Core Capabilities
 
 - Dashboard with KPI cards, trend charts, and date-range filtering (defaulting to recent period)
-- Sales ledger with invoice lifecycle, due-date tracking, and receipt capture
+- Sales ledger with invoice lifecycle, due-date tracking, receipt capture, and pagination
 - Customer profile management with credit balance and manual due support
 - Customer payment allocation across multiple pending invoices with allocation history
-- Cash entry management (income and expense) with categories, links, and optional attachments
-- JCB operational records with hour calculation, income/expense summaries, and paid-state flow
-- Tipper records module with expense vs value-added tracking, optional descriptions, detail view, and analytics cards
+- Automatic credit application to pending sales during sale create/edit when customer credit is available
+- Safe rollback on sale deletion that restores auto-applied credit to customer balance
+- Cash entry management (income and expense) with categories, links, optional attachments, and paginated list view
+- JCB operational records with hour calculation, income/expense summaries, paid-state flow, and paginated list view
+- Tipper records module with expense vs value-added tracking, optional descriptions, detail view, analytics cards, and paginated list view
 - Alert center with overdue/upcoming pipeline, timeline history, and status resolution
 - Manual alert creation, editing, and deletion for custom reminders
 - Alert badge that emphasizes unresolved overdue items for quick action
-- HTMX partial responses for responsive filtering/tables without full page reloads
+- HTMX partial responses for responsive filtering, pagination, and table refresh without full page reloads
 - Authentication through Django auth views (login/logout)
 
 ## Technology Stack
@@ -60,7 +62,7 @@ CompanyFlowManagementApp/
 │   ├── apps.py
 │   ├── tests.py
 │   ├── migrations/
-│   │   ├── 0001_initial.py ... 0017_*.py
+│   │   ├── 0001_initial.py ... 0018_*.py
 │   │   └── __init__.py
 │   ├── management/
 │   │   └── commands/
@@ -108,12 +110,6 @@ CompanyFlowManagementApp/
 │           ├── tipper_records_table.html
 │           ├── transaction_table.html
 └── assets/
-    ├── dashboard.png
-    ├── sales-*.png
-    ├── customers-*.png
-    ├── cash-entries-*.png
-    ├── alerts-*.png
-    └── accounts-*.png
 ```
 
 ## Data Model Overview
@@ -241,31 +237,36 @@ python manage.py sync_paid_sales_income
 
 ### Dashboard
 
-![Dashboard](assets/dashboard.png)
+![Dashboard](assets/screencapture-127-0-0-1-8000-2026-03-28-15_54_34.png)
 
 ### Sales
 
-![Sales List](assets/sales-2026-03-20-19_25_01.png)
-![Add Sale](assets/sales-new-2026-03-20-19_25_21.png)
+![Sales List](assets/screencapture-127-0-0-1-8000-sales-2026-03-28-15_56_29.png)
+![Add Sale](assets/screencapture-127-0-0-1-8000-sales-new-2026-03-28-15_56_44.png)
+
+### JCB Records
+
+![JCB Records](assets/screencapture-127-0-0-1-8000-jcb-records-2026-03-28-15_57_22.png)
+
+### Tipper Records
+
+![Tipper Records](assets/screencapture-127-0-0-1-8000-tipper-records-2026-03-28-15_57_54.png)
+![Add Tipper Record](assets/screencapture-127-0-0-1-8000-tipper-records-new-2026-03-28-15_58_07.png)
 
 ### Customers
 
-![Customers List](assets/customers-2026-03-20-19_25_37.png)
-![Add Customer](assets/customers-new-2026-03-20-19_30_21.png)
+![Customers List](assets/screencapture-127-0-0-1-8000-customers-2026-03-28-15_59_43.png)
+![Add Customer](assets/screencapture-127-0-0-1-8000-customers-new-2026-03-28-16_00_05.png)
 
 ### Cash Entries
 
-![Cash Entries](assets/cash-entries-2026-03-20-19_24_38.png)
-![Add Cash Entry](assets/cash-entries-new-2026-03-20-19_24_51.png)
+![Cash Entries](assets/screencapture-127-0-0-1-8000-cash-entries-2026-03-28-15_55_43.png)
+![Add Cash Entry](assets/screencapture-127-0-0-1-8000-cash-entries-new-2026-03-28-15_55_59.png)
 
 ### Alerts
 
-![Alerts](assets/alerts-2026-03-20-19_30_43.png)
-
-### Authentication
-
-![Login](assets/accounts-login-2026-03-20-19_31_14.png)
-![Logged Out](assets/accounts-logout-2026-03-20-19_30_58.png)
+![Alerts](assets/screencapture-127-0-0-1-8000-alerts-2026-03-28-16_00_31.png)
+![Create Manual Alert](assets/screencapture-127-0-0-1-8000-alerts-manual-new-2026-03-28-16_00_45.png)
 
 ## Testing and Validation
 
@@ -279,6 +280,12 @@ Run test suite:
 
 ```bash
 python manage.py test
+```
+
+Run tests with SQLite test settings (useful when PostgreSQL test DB create privileges are restricted):
+
+```bash
+python manage.py test --settings=config.settings_test
 ```
 
 ## Deployment Notes
