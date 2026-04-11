@@ -14,6 +14,7 @@ It is designed for businesses that need practical day-to-day control over:
 
 - Dashboard with KPI cards, trend charts, and date-range filtering (defaulting to recent period)
 - Sales ledger with invoice lifecycle, due-date tracking, receipt capture, and pagination
+- NPR-style amount rendering across profile cards and tables (comma-grouped, no trailing .00 for whole amounts)
 - Customer profile management with credit balance and manual due support
 - Customer payment allocation across multiple pending invoices with allocation history
 - Automatic credit application to pending sales during sale create/edit when customer credit is available
@@ -21,6 +22,7 @@ It is designed for businesses that need practical day-to-day control over:
 - Cash entry management (income and expense) with categories, links, optional attachments, and paginated list view
 - JCB operational records with hour calculation, income/expense summaries, paid-state flow, and paginated list view
 - Tipper records module with expense vs value-added tracking, optional descriptions, detail view, analytics cards, and paginated list view
+- Standardized paginated list views at 20 rows per page across sales, cash entries, JCB, and tipper tables
 - Alert center with overdue/upcoming pipeline, timeline history, and status resolution
 - Manual alert creation, editing, and deletion for custom reminders
 - Alert badge that emphasizes unresolved overdue items for quick action

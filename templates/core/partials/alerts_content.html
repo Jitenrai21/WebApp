@@ -1,4 +1,5 @@
 <div class="space-y-5">
+    {% load core_format %}
     {% if include_badge_oob %}
     <span id="alerts-badge-container" hx-swap-oob="innerHTML">
         {% include 'core/partials/alerts_badge.html' %}
@@ -57,7 +58,7 @@
                         </td>
                         <td>{% if item.customer %}<a href="{% url 'customer_detail' item.customer.id %}" class="link link-primary">{{ item.customer.name }}</a>{% else %}-{% endif %}</td>
                         <td>{{ item.due_date }}</td>
-                        <td>{% if item.source == 'manual' %}N/A{% else %}NPR {{ item.amount }}{% endif %}</td>
+                        <td>{% if item.source == 'manual' %}N/A{% else %}NPR {{ item.amount|npr_amount }}{% endif %}</td>
                         <td>{{ item.status_label }}</td>
                     </tr>
                     {% empty %}

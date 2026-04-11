@@ -1,4 +1,5 @@
 <div class="cf-table-shell">
+    {% load core_format %}
     <div class="cf-table-head">
         <h2 class="font-semibold">Sales Ledger</h2>
         <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} sale{{ page_obj.paginator.count|pluralize }}</span>
@@ -42,9 +43,9 @@
                             <span class="text-base-content/60">No items</span>
                         {% endif %}
                     </td>
-                    <td>NPR {{ sale.total_amount }}</td>
-                    <td>NPR {{ sale.received_total }}</td>
-                    <td>NPR {{ sale.remaining_balance }}</td>
+                    <td>NPR {{ sale.total_amount|npr_amount }}</td>
+                    <td>NPR {{ sale.received_total|npr_amount }}</td>
+                    <td>NPR {{ sale.remaining_balance|npr_amount }}</td>
                     <td>
                         <span class="badge {% if sale.status == 'paid' %}badge-success{% else %}badge-warning{% endif %} badge-outline">
                             {{ sale.get_status_display }}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load core_format %}
 
 {% block title %}{{ sale.invoice_number }} | Sale Detail{% endblock %}
 
@@ -51,7 +52,7 @@
                     <p><span class="font-semibold">Alert Tracking:</span> {% if sale.alert_enabled %}On{% else %}Off{% endif %}</p>
                     <p><span class="font-semibold">Date:</span> {{ sale.date }}</p>
                     <p><span class="font-semibold">Due Date:</span> {{ sale.due_date }}</p>
-                    <p><span class="font-semibold">Total Amount:</span> NPR {{ sale.total_amount }}</p>
+                    <p><span class="font-semibold">Total Amount:</span> NPR {{ sale.total_amount|npr_amount }}</p>
                     <p class="md:col-span-2"><span class="font-semibold">Notes:</span> {{ sale.notes|default:'-' }}</p>
                 </div>
                 <div>
@@ -71,8 +72,8 @@
                                 <tr>
                                     <td>{{ item.item }}</td>
                                     <td class="text-right">{{ item.quantity|default:1 }}</td>
-                                    <td class="text-right">NPR {{ item.price }}</td>
-                                    <td class="text-right">NPR {{ item.amount|default:item.price }}</td>
+                                    <td class="text-right">NPR {{ item.price|npr_amount }}</td>
+                                    <td class="text-right">NPR {{ item.amount|default:item.price|npr_amount }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -90,13 +91,13 @@
             <div class="cf-section">
                 <div class="card-body">
                     <p class="text-sm text-base-content/60">Received</p>
-                    <p class="text-2xl font-semibold">NPR {{ total_received }}</p>
+                    <p class="text-2xl font-semibold">NPR {{ total_received|npr_amount }}</p>
                 </div>
             </div>
             <div class="cf-section">
                 <div class="card-body">
                     <p class="text-sm text-base-content/60">Remaining</p>
-                    <p class="text-2xl font-semibold">NPR {{ remaining_balance }}</p>
+                    <p class="text-2xl font-semibold">NPR {{ remaining_balance|npr_amount }}</p>
                 </div>
             </div>
             <div class="cf-section">

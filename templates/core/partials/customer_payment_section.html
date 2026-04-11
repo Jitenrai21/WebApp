@@ -1,8 +1,9 @@
 <div id="customer-payment-section" class="space-y-4 lg:col-span-3">
+    {% load core_format %}
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="cf-kpi-card"><p class="kpi-label">Total Payment</p><p class="kpi-value">NPR {{ total_payment }}</p></div>
-        <div class="cf-kpi-card"><p class="kpi-label">Due Amount</p><p class="kpi-value">NPR {{ due_amount }}</p></div>
-        <div class="cf-kpi-card"><p class="kpi-label">Credit Balance</p><p class="kpi-value">NPR {{ customer.credit_balance }}</p></div>
+        <div class="cf-kpi-card"><p class="kpi-label">Total Payment</p><p class="kpi-value">NPR {{ total_payment|npr_amount }}</p></div>
+        <div class="cf-kpi-card"><p class="kpi-label">Due Amount</p><p class="kpi-value">NPR {{ due_amount|npr_amount }}</p></div>
+        <div class="cf-kpi-card"><p class="kpi-label">Credit Balance</p><p class="kpi-value">NPR {{ customer.credit_balance|npr_amount }}</p></div>
         <div class="cf-kpi-card"><p class="kpi-label">Sales Count</p><p class="kpi-value">{{ sales|length }}</p></div>
     </div>
 
@@ -77,7 +78,7 @@
                                 <input type="checkbox" name="sale_ids" value="{{ row.sale.id }}" class="checkbox checkbox-primary border-base-300 scale-105">
                             </span>
                             <span>{{ row.sale.invoice_number }} | {{ row.sale.date }}</span>
-                            <span class="font-semibold">NPR {{ row.due_amount }}</span>
+                            <span class="font-semibold">NPR {{ row.due_amount|npr_amount }}</span>
                         </label>
                         {% empty %}
                         {% endfor %}
@@ -87,7 +88,7 @@
                                 <input type="checkbox" name="allocate_manual_due" class="checkbox checkbox-warning border-base-300 scale-105">
                             </span>
                             <span class="font-semibold text-warning">Manual Due (Legacy)</span>
-                            <span class="font-semibold text-warning">NPR {{ manual_due_amount }}</span>
+                            <span class="font-semibold text-warning">NPR {{ manual_due_amount|npr_amount }}</span>
                         </label>
                         {% endif %}
                         {% if not pending_sales_rows and manual_due_amount <= 0 %}

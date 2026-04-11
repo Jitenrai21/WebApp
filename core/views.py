@@ -73,6 +73,19 @@ def _htmx_feedback_response(message, level="success", status=200, redirect_url="
 	return HttpResponse("", status=status, headers={"HX-Trigger": json.dumps(payload)})
 
 
+def _get_default_date_range():
+	"""Get default date range for last 30 days.
+	
+	Returns:
+		tuple: (default_from, default_to) as ISO format date strings
+	"""
+	import datetime
+	today = datetime.date.today()
+	default_from = (today - datetime.timedelta(days=29)).isoformat()
+	default_to = today.isoformat()
+	return default_from, default_to
+
+
 def _dashboard_base_sales_queryset(date_from="", date_to=""):
 	sales_queryset = Sale.objects.select_related("customer").annotate(
 		received_total=Coalesce(
@@ -857,10 +870,7 @@ def _customer_payment_context(customer):
 
 @login_required
 def dashboard(request):
-	import datetime
-	today = datetime.date.today()
-	default_from = (today - datetime.timedelta(days=29)).isoformat()
-	default_to = today.isoformat()
+	default_from, default_to = _get_default_date_range()
 	date_from = request.GET.get("date_from", "").strip() or default_from
 	date_to = request.GET.get("date_to", "").strip() or default_to
 	context = _dashboard_context(date_from=date_from, date_to=date_to)
@@ -874,13 +884,14 @@ def dashboard(request):
 
 @login_required
 def cash_entries(request):
+	default_from, default_to = _get_default_date_range()
 	transactions = Transaction.objects.select_related("customer", "sale", "jcb_record", "category").exclude(
 		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
 	)
 
 	query = request.GET.get("q", "").strip()
-	date_from = request.GET.get("date_from", "").strip()
-	date_to = request.GET.get("date_to", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
 	transaction_type = request.GET.get("type", "").strip()
 	customer_id = request.GET.get("customer", "").strip()
 	category_id = request.GET.get("category", "").strip()
@@ -913,7 +924,7 @@ def cash_entries(request):
 	}
 	transactions = transactions.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
 
-	paginator = Paginator(transactions, 12)
+	paginator = Paginator(transactions, 20)
 	page_obj = paginator.get_page(request.GET.get("page"))
 
 	context = {
@@ -1077,6 +1088,7 @@ def transaction_delete(request, pk):
 
 @login_required
 def jcb_records(request):
+	default_from, default_to = _get_default_date_range()
 	queryset = JCBRecord.objects.all().annotate(
 		income_amount_calc=Coalesce(
 			F("total_amount"),
@@ -1089,8 +1101,8 @@ def jcb_records(request):
 
 	query = request.GET.get("q", "").strip()
 	status = request.GET.get("status", "").strip()
-	date_from = request.GET.get("date_from", "").strip()
-	date_to = request.GET.get("date_to", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
 	sort = request.GET.get("sort", "-date")
 
 	if query:
@@ -1100,7 +1112,12 @@ def jcb_records(request):
 			| Q(status__icontains=query)
 		)
 	if status:
-		queryset = queryset.filter(status=status)
+		queryset = queryset.filter(status=status).exclude(
+			Q(start_time=Decimal("0.00"))
+			& Q(end_time=Decimal("0.00"))
+			& ~Q(expense_item="")
+			& Q(expense_amount__isnull=False)
+		)
 	if date_from:
 		queryset = queryset.filter(date__gte=date_from)
 	if date_to:
@@ -1116,7 +1133,7 @@ def jcb_records(request):
 	}
 	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
 
-	paginator = Paginator(queryset, 12)
+	paginator = Paginator(queryset, 20)
 	page_obj = paginator.get_page(request.GET.get("page"))
 
 	context = {
@@ -1242,11 +1259,12 @@ def jcb_record_mark_paid(request, pk):
 
 @login_required
 def tipper_records(request):
+	default_from, default_to = _get_default_date_range()
 	queryset = TipperRecord.objects.select_related("item").all()
 
 	query = request.GET.get("q", "").strip()
-	date_from = request.GET.get("date_from", "").strip()
-	date_to = request.GET.get("date_to", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
 	record_type = request.GET.get("record_type", "").strip()
 	item_id = request.GET.get("item", "").strip()
 	sort = request.GET.get("sort", "-date")
@@ -1272,7 +1290,7 @@ def tipper_records(request):
 	}
 	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
 
-	paginator = Paginator(queryset, 12)
+	paginator = Paginator(queryset, 20)
 	page_obj = paginator.get_page(request.GET.get("page"))
 
 	context = {
@@ -1380,6 +1398,7 @@ def tipper_record_delete(request, pk):
 
 @login_required
 def sales(request):
+	default_from, default_to = _get_default_date_range()
 	queryset = Sale.objects.select_related("customer").annotate(
 		received_total=F("paid_amount"),
 	)
@@ -1399,8 +1418,8 @@ def sales(request):
 	query = request.GET.get("q", "").strip()
 	status = request.GET.get("status", "").strip()
 	customer_id = request.GET.get("customer", "").strip()
-	date_from = request.GET.get("date_from", "").strip()
-	date_to = request.GET.get("date_to", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
 	sort = request.GET.get("sort", "-date")
 
 	if query:
@@ -1428,7 +1447,7 @@ def sales(request):
 	}
 	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
 
-	paginator = Paginator(queryset, 12)
+	paginator = Paginator(queryset, 20)
 	page_obj = paginator.get_page(request.GET.get("page"))
 
 	context = {

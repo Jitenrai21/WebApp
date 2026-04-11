@@ -1,4 +1,5 @@
 <div class="cf-table-shell">
+    {% load core_format %}
     <div class="cf-table-head">
         <h2 class="font-semibold">Tipper Record List</h2>
         <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
@@ -37,7 +38,7 @@
                         <span class="text-base-content/50">&mdash;</span>
                         {% endif %}
                     </td>
-                    <td>NPR {{ record.amount }}</td>
+                    <td>NPR {{ record.amount|npr_amount }}</td>
                     <td class="text-right align-middle">
                         <div class="inline-flex min-h-8 items-center justify-end gap-1 whitespace-nowrap">
                             <div class="hidden md:flex items-center justify-end gap-1">

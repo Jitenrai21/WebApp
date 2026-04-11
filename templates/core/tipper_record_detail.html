@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load core_format %}
 
 {% block title %}Tipper Record {{ tipper_record.id }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
 
@@ -30,7 +31,7 @@
                             {{ tipper_record.get_record_type_display }}
                         </span>
                     </p>
-                    <p><span class="font-semibold">Amount:</span> NPR {{ tipper_record.amount }}</p>
+                    <p><span class="font-semibold">Amount:</span> NPR {{ tipper_record.amount|npr_amount }}</p>
                     <p class="md:col-span-2">
                         <span class="font-semibold">Description:</span>
                         {% if tipper_record.description %}

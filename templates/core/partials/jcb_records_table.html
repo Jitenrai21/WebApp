@@ -1,4 +1,5 @@
 <div class="cf-table-shell">
+    {% load core_format %}
     <div class="cf-table-head">
         <h2 class="font-semibold">JCB Work Records</h2>
         <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
@@ -41,7 +42,7 @@
                     <td><span class="text-base-content/50 italic">N/A</span></td>
                     <td><span class="text-base-content/50 italic">N/A</span></td>
                     <td><span class="text-base-content/50 italic">N/A</span></td>
-                    <td>{{ record.expense_item }} (NPR {{ record.expense_amount }})</td>
+                    <td>{{ record.expense_item }} (NPR {{ record.expense_amount|npr_amount }})</td>
                     <td class="text-right align-middle">
                         <div class="inline-flex min-h-8 items-center justify-end gap-1 whitespace-nowrap">
                             <div class="hidden md:flex items-center justify-end gap-1">
@@ -97,17 +98,17 @@
                     <td>{{ record.start_time }}</td>
                     <td>{{ record.end_time }}</td>
                     <td>{{ record.total_work_hours }}</td>
-                    <td>NPR {{ record.total_amount|default:record.income_amount_calc|default:record.income_amount }}</td>
+                    <td>NPR {{ record.total_amount|default:record.income_amount_calc|default:record.income_amount|npr_amount }}</td>
                     <td>
                         <span class="badge {% if record.status == 'paid' %}badge-success{% else %}badge-warning{% endif %} badge-outline">
                             {{ record.get_status_display }}
                         </span>
                     </td>
-                    <td>NPR {{ record.rate }}</td>
-                    <td>NPR {{ record.income_amount_calc|default:record.income_amount }}</td>
+                    <td>NPR {{ record.rate|npr_amount }}</td>
+                    <td>NPR {{ record.income_amount_calc|default:record.income_amount|npr_amount }}</td>
                     <td>
                         {% if record.expense_item and record.expense_amount %}
-                        {{ record.expense_item }} (NPR {{ record.expense_amount }})
+                        {{ record.expense_item }} (NPR {{ record.expense_amount|npr_amount }})
                         {% else %}
                         <span class="text-base-content/50">None</span>
                         {% endif %}

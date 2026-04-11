@@ -1,4 +1,5 @@
 <div id="sale-receipts-panel" class="grid gap-5 xl:grid-cols-3">
+    {% load core_format %}
     <div class="cf-table-shell xl:col-span-2">
         <div class="cf-table-head">
             <div>
@@ -22,8 +23,8 @@
                     <tr>
                         <td>{{ row.receipt.date }}</td>
                         <td>{{ row.receipt.category }}</td>
-                        <td>NPR {{ row.receipt.amount }}</td>
-                        <td>NPR {{ row.running_balance }}</td>
+                        <td>NPR {{ row.receipt.amount|npr_amount }}</td>
+                        <td>NPR {{ row.running_balance|npr_amount }}</td>
                     </tr>
                     {% empty %}
                     <tr>

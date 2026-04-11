@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load core_format %}
 
 {% block title %}Customers | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
 
@@ -66,7 +67,7 @@
                         <td><span class="badge badge-outline">{{ customer.get_type_display }}</span></td>
                         <td>{{ customer.phone|default:'-' }}</td>
                         <td>{{ customer.credit_terms|default:'-' }}</td>
-                        <td>NPR {{ customer.opening_balance }}</td>
+                        <td>NPR {{ customer.opening_balance|npr_amount }}</td>
                         <td class="text-right">
                             <a href="{% url 'customer_detail' customer.id %}" class="btn btn-xs btn-outline">View</a>
                             <a href="{% url 'customer_edit' customer.id %}" class="btn btn-xs btn-ghost">Edit</a>

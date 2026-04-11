@@ -1,30 +1,31 @@
 <div class="space-y-6">
+    {% load core_format %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div class="cf-kpi-card cf-kpi-card--sales">
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Total Sales</p>
-                <p class="kpi-value !mt-0 text-xl leading-tight js-npr-value" data-npr-value="{{ kpis.total_sales }}">NPR {{ kpis.total_sales }}</p>
+                <p class="kpi-value !mt-0 text-xl leading-tight js-npr-value" data-npr-value="{{ kpis.total_sales }}">NPR {{ kpis.total_sales|npr_amount }}</p>
                 <p class="kpi-note">Gross billed in selected date range</p>
             </div>
         </div>
         <div class="cf-kpi-card cf-kpi-card--income">
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Total Income</p>
-                <p class="kpi-value !mt-0 text-xl leading-tight text-success js-npr-value" data-npr-value="{{ kpis.total_income }}">NPR {{ kpis.total_income }}</p>
+                <p class="kpi-value !mt-0 text-xl leading-tight text-success js-npr-value" data-npr-value="{{ kpis.total_income }}">NPR {{ kpis.total_income|npr_amount }}</p>
                 <p class="kpi-note">All recorded incoming cash</p>
             </div>
         </div>
         <div class="cf-kpi-card cf-kpi-card--expense">
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Total Expenses</p>
-                <p class="kpi-value !mt-0 text-xl leading-tight text-error js-npr-value" data-npr-value="{{ kpis.total_expenses }}">NPR {{ kpis.total_expenses }}</p>
+                <p class="kpi-value !mt-0 text-xl leading-tight text-error js-npr-value" data-npr-value="{{ kpis.total_expenses }}">NPR {{ kpis.total_expenses|npr_amount }}</p>
                 <p class="kpi-note">All recorded outgoing cash</p>
             </div>
         </div>
         <div class="cf-kpi-card cf-kpi-card--receivable">
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Outstanding Receivables</p>
-                <p class="kpi-value !mt-0 text-xl leading-tight js-npr-value" data-npr-value="{{ kpis.outstanding_receivables }}">NPR {{ kpis.outstanding_receivables }}</p>
+                <p class="kpi-value !mt-0 text-xl leading-tight js-npr-value" data-npr-value="{{ kpis.outstanding_receivables }}">NPR {{ kpis.outstanding_receivables|npr_amount }}</p>
                 <p class="kpi-note">Pending amount from unpaid sales</p>
             </div>
         </div>
@@ -32,7 +33,7 @@
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Overdue Invoices</p>
                 <p class="kpi-value !mt-0 text-xl leading-tight">{{ kpis.overdue_count }}</p>
-                <p class="kpi-note js-npr-value" data-npr-value="{{ kpis.overdue_amount }}">NPR {{ kpis.overdue_amount }}</p>
+                <p class="kpi-note js-npr-value" data-npr-value="{{ kpis.overdue_amount }}">NPR {{ kpis.overdue_amount|npr_amount }}</p>
             </div>
         </div>
     </div>
@@ -68,17 +69,17 @@
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
                     <div class="cf-kpi-card cf-kpi-card--income">
                         <p class="kpi-label !mt-0">Total Income</p>
-                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ kpis.total_income }}">NPR {{ kpis.total_income }}</p>
+                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ kpis.total_income }}">NPR {{ kpis.total_income|npr_amount }}</p>
                         <p class="kpi-note">All recorded incoming cash</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--expense">
                         <p class="kpi-label !mt-0">Total Expenses</p>
-                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ kpis.total_expenses }}">NPR {{ kpis.total_expenses }}</p>
+                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ kpis.total_expenses }}">NPR {{ kpis.total_expenses|npr_amount }}</p>
                         <p class="kpi-note">All recorded outgoing cash</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--sales">
                         <p class="kpi-label !mt-0">Net Income</p>
-                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ kpis.net_income }}">NPR {{ kpis.net_income }}</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ kpis.net_income }}">NPR {{ kpis.net_income|npr_amount }}</p>
                         <p class="kpi-note">Income minus Expense</p>
                     </div>
                 </div>
@@ -108,12 +109,12 @@
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
                     <div class="cf-kpi-card cf-kpi-card--income">
                         <p class="kpi-label !mt-0">JCB Income</p>
-                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ jcb_summary.total_jcb_income }}">NPR {{ jcb_summary.total_jcb_income }}</p>
+                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ jcb_summary.total_jcb_income }}">NPR {{ jcb_summary.total_jcb_income|npr_amount }}</p>
                         <p class="kpi-note">Income from paid JCB records</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--expense">
                         <p class="kpi-label !mt-0">JCB Expense</p>
-                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ jcb_summary.total_jcb_expense }}">NPR {{ jcb_summary.total_jcb_expense }}</p>
+                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ jcb_summary.total_jcb_expense }}">NPR {{ jcb_summary.total_jcb_expense|npr_amount }}</p>
                         <p class="kpi-note">Recorded JCB operating expenses</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--sales">
@@ -123,12 +124,12 @@
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--sales">
                         <p class="kpi-label !mt-0">Net Value</p>
-                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ jcb_summary.net_value }}">NPR {{ jcb_summary.net_value }}</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ jcb_summary.net_value }}">NPR {{ jcb_summary.net_value|npr_amount }}</p>
                         <p class="kpi-note">JCB Income minus JCB Expense</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--receivable">
                         <p class="kpi-label !mt-0">Outstanding Receivables</p>
-                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ jcb_summary.outstanding_receivables }}">NPR {{ jcb_summary.outstanding_receivables }}</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ jcb_summary.outstanding_receivables }}">NPR {{ jcb_summary.outstanding_receivables|npr_amount }}</p>
                         <p class="kpi-note">Pending JCB work amount yet to be received</p>
                     </div>
                 </div>
@@ -158,17 +159,17 @@
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
                     <div class="cf-kpi-card cf-kpi-card--expense">
                         <p class="kpi-label !mt-0">Tipper Expense</p>
-                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ tipper_summary.total_expense }}">NPR {{ tipper_summary.total_expense }}</p>
+                        <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ tipper_summary.total_expense }}">NPR {{ tipper_summary.total_expense|npr_amount }}</p>
                         <p class="kpi-note">Total expense from tipper records</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--income">
                         <p class="kpi-label !mt-0">Value Added</p>
-                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ tipper_summary.total_value_added }}">NPR {{ tipper_summary.total_value_added }}</p>
+                        <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ tipper_summary.total_value_added }}">NPR {{ tipper_summary.total_value_added|npr_amount }}</p>
                         <p class="kpi-note">Total value-added from tipper records</p>
                     </div>
                     <div class="cf-kpi-card cf-kpi-card--sales">
                         <p class="kpi-label !mt-0">Net Value</p>
-                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ tipper_summary.net_value }}">NPR {{ tipper_summary.net_value }}</p>
+                        <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ tipper_summary.net_value }}">NPR {{ tipper_summary.net_value|npr_amount }}</p>
                         <p class="kpi-note">Value Added minus Expense</p>
                     </div>
                 </div>
@@ -234,7 +235,7 @@
                         <tr>
                             <td><a href="{% url 'sale_detail' sale.id %}" class="link link-primary">{{ sale.invoice_number }}</a></td>
                             <td>{% if sale.customer %}{{ sale.customer.name }}{% else %}<span class="text-base-content/60">Unassigned</span>{% endif %}</td>
-                            <td class="js-npr-value" data-npr-value="{{ sale.total_amount }}">NPR {{ sale.total_amount }}</td>
+                            <td class="js-npr-value" data-npr-value="{{ sale.total_amount }}">NPR {{ sale.total_amount|npr_amount }}</td>
                             <td>
                                 {% if sale.status == 'paid' %}
                                 <span class="badge badge-success">Paid</span>
@@ -279,7 +280,7 @@
                         <tr>
                             <td>{{ tx.date }}</td>
                             <td>{{ tx.get_type_display }}</td>
-                            <td class="js-npr-value" data-npr-value="{{ tx.amount }}">NPR {{ tx.amount }}</td>
+                            <td class="js-npr-value" data-npr-value="{{ tx.amount }}">NPR {{ tx.amount|npr_amount }}</td>
                         </tr>
                         {% empty %}
                         <tr>

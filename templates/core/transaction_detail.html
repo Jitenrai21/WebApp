@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load core_format %}
 
 {% block title %}Cash Entry {{ transaction.id }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
 
@@ -29,7 +30,7 @@
                             {{ transaction.get_type_display }}
                         </span>
                     </p>
-                    <p><span class="font-semibold">Amount:</span> NPR {{ transaction.amount }}</p>
+                    <p><span class="font-semibold">Amount:</span> NPR {{ transaction.amount|npr_amount }}</p>
                     <p><span class="font-semibold">Payment Method:</span> {{ transaction.get_payment_method_display }}</p>
                     <p><span class="font-semibold">Category:</span> {{ transaction.category }}</p>
                     <p><span class="font-semibold">Customer:</span> {% if transaction.customer %}{{ transaction.customer.name }}{% else %}Unassigned{% endif %}</p>

@@ -15,6 +15,7 @@ from .models import (
 	AlertType,
 	Customer,
 	CustomerType,
+	JCBRecord,
 	RecordStatus,
 	Sale,
 	TipperItem,
@@ -572,8 +573,8 @@ class AlertsWorkflowTests(TestCase):
 		self.client.login(username="alert-user", password="pass1234")
 		response = self.client.get(reverse("alerts"), {"type": "overdue"})
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "NPR 1000.00")
-		self.assertNotContains(response, "NPR 800.00")
+		self.assertContains(response, "NPR 1,000")
+		self.assertNotContains(response, "NPR 800")
 
 	def test_alerts_table_includes_invoice_link_and_sale_description(self):
 		self.client.login(username="alert-user", password="pass1234")
@@ -720,8 +721,8 @@ class CustomerDueCreditBehaviorTests(TestCase):
 		self.client.login(username="customer-due", password="pass1234")
 		response = self.client.get(reverse("customer_detail", args=[self.customer.pk]))
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, "NPR 1000.00")
-		self.assertContains(response, "NPR 500.00")
+		self.assertContains(response, "NPR 1,000")
+		self.assertContains(response, "NPR 500")
 
 	def test_apply_credit_balance_allocates_to_sale(self):
 		self.client.login(username="customer-due", password="pass1234")
@@ -830,7 +831,7 @@ class CustomerDueCreditBehaviorTests(TestCase):
 		response = self.client.get(reverse("alerts"))
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Invoice INV-A-UNASSIGNED")
-		self.assertContains(response, "NPR 450.00")
+		self.assertContains(response, "NPR 450")
 
 		filtered_response = self.client.get(reverse("alerts"), {"customer": "__unassigned__"})
 		self.assertEqual(filtered_response.status_code, 200)
@@ -942,3 +943,36 @@ class TipperRecordsDescriptionTests(TestCase):
 		self.assertEqual(detail_response.status_code, 200)
 		self.assertContains(detail_response, "Description:")
 		self.assertContains(detail_response, "&mdash;", html=False)
+
+
+class JCBStatusFilterTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="jcb-filter", password="pass1234")
+
+	def test_pending_filter_excludes_expense_only_rows(self):
+		self.client.login(username="jcb-filter", password="pass1234")
+
+		JCBRecord.objects.create(
+			date=timezone.localdate(),
+			site_name="Work Site",
+			start_time=Decimal("600.00"),
+			end_time=Decimal("602.00"),
+			status=RecordStatus.PENDING,
+			rate=Decimal("2000.00"),
+			total_amount=Decimal("4000.00"),
+		)
+		JCBRecord.objects.create(
+			date=timezone.localdate(),
+			site_name="Fuel",
+			start_time=Decimal("0.00"),
+			end_time=Decimal("0.00"),
+			status=RecordStatus.PENDING,
+			expense_item="Diesel",
+			expense_amount=Decimal("1200.00"),
+		)
+
+		response = self.client.get(reverse("jcb_records"), {"status": RecordStatus.PENDING})
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, "Work Site")
+		self.assertNotContains(response, "Diesel")

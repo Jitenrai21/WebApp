@@ -137,20 +137,24 @@
         return values.map((value) => numberFrom(value));
     }
 
-    function formatIndianNumber(value, options = {}) {
-        const { minimumFractionDigits = 0, maximumFractionDigits = 2 } = options;
-        return new Intl.NumberFormat('en-IN', {
-            minimumFractionDigits,
-            maximumFractionDigits
-        }).format(numberFrom(value));
+    function formatNprNumber(value, options = {}) {
+        const { forceInteger = false } = options;
+        const numeric = numberFrom(value);
+        const rounded = Number(numeric.toFixed(2));
+        const hasFraction = !forceInteger && Math.abs(rounded % 1) > 0;
+
+        return rounded.toLocaleString('en-IN', {
+            minimumFractionDigits: hasFraction ? 2 : 0,
+            maximumFractionDigits: hasFraction ? 2 : 0
+        });
     }
 
     function formatNpr(value) {
-        return `NPR ${formatIndianNumber(value, { maximumFractionDigits: 2 })}`;
+        return `NPR ${formatNprNumber(value)}`;
     }
 
     function formatNprAxis(value) {
-        return formatIndianNumber(value, { maximumFractionDigits: 0 });
+        return formatNprNumber(value, { forceInteger: true });
     }
 
     function formatCompactAxisValue(value) {
@@ -170,16 +174,16 @@
         if (absolute >= 1000) {
             return `${trimTrailingZero((numeric / 1000).toFixed(1))}K`;
         }
-        return formatIndianNumber(numeric, { maximumFractionDigits: 0 });
+        return formatNprNumber(numeric, { forceInteger: true });
     }
 
-    function applyIndianCurrencyFormatting(root = document) {
+    function applyNprCurrencyFormatting(root = document) {
         root.querySelectorAll('.js-npr-value').forEach((element) => {
             const rawValue = element.dataset.nprValue;
             if (rawValue === undefined) {
                 return;
             }
-            element.textContent = `NPR ${formatIndianNumber(rawValue, { maximumFractionDigits: 2 })}`;
+            element.textContent = `NPR ${formatNprNumber(rawValue)}`;
         });
     }
 
@@ -849,7 +853,7 @@
         }
 
         const dashboardRoot = document.getElementById('dashboard-content') || document;
-        applyIndianCurrencyFormatting(dashboardRoot);
+        applyNprCurrencyFormatting(dashboardRoot);
         applyKpiLabelAccessibility(dashboardRoot);
     }
 
