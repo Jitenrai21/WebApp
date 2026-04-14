@@ -13,6 +13,8 @@ from .models import (
 	AlertNotification,
 	AlertSource,
 	AlertType,
+	BlocksRecord,
+	BlocksRecordType,
 	Customer,
 	CustomerType,
 	JCBRecord,
@@ -976,3 +978,76 @@ class JCBStatusFilterTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, "Work Site")
 		self.assertNotContains(response, "Diesel")
+
+
+class BlocksInvestmentLedgerSyncTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="blocks-sync", password="pass1234")
+
+	def test_create_investment_does_not_create_global_expense_transaction(self):
+		self.client.login(username="blocks-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("blocks_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": BlocksRecordType.INVESTMENT,
+				"investment": "1000.00",
+				"notes": "Cement and labor",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = BlocksRecord.objects.get(record_type=BlocksRecordType.INVESTMENT)
+		self.assertEqual(record.transactions.count(), 0)
+		self.assertFalse(
+			Transaction.objects.filter(
+				blocks_record=record,
+				type=TransactionType.EXPENSE,
+			).exists()
+		)
+
+	def test_sale_record_still_creates_income_transaction(self):
+		self.client.login(username="blocks-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("blocks_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": BlocksRecordType.SALE,
+				"unit_type": "4_inch",
+				"quantity": "10",
+				"price_per_unit": "100.00",
+				"notes": "Retail sale",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = BlocksRecord.objects.get(record_type=BlocksRecordType.SALE)
+		self.assertTrue(
+			Transaction.objects.filter(
+				blocks_record=record,
+				type=TransactionType.INCOME,
+			).exists()
+		)
+
+	def test_delete_investment_record_does_not_delete_linked_expense_transaction(self):
+		self.client.login(username="blocks-sync", password="pass1234")
+		record = BlocksRecord.objects.create(
+			date=timezone.localdate(),
+			record_type=BlocksRecordType.INVESTMENT,
+			investment=Decimal("500.00"),
+		)
+		expense_tx = Transaction.objects.create(
+			date=timezone.localdate(),
+			amount=Decimal("500.00"),
+			type=TransactionType.EXPENSE,
+			blocks_record=record,
+		)
+
+		response = self.client.post(reverse("blocks_record_delete", args=[record.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		expense_tx.refresh_from_db()
+		self.assertIsNone(expense_tx.blocks_record)

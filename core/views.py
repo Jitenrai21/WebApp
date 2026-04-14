@@ -2274,10 +2274,8 @@ def blocks_record_create(request):
 		if form.is_valid():
 			blocks_record = form.save()
 			
-			# Create related transactions for investment and sale records
-			if blocks_record.is_investment:
-				_create_blocks_investment_transaction(blocks_record)
-			elif blocks_record.is_sale:
+			# Only sale records create linked global income transactions.
+			if blocks_record.is_sale:
 				_create_blocks_sale_transaction(blocks_record)
 			
 			messages.success(request, "Blocks record created successfully.")
@@ -2307,11 +2305,9 @@ def blocks_record_edit(request, pk):
 		if form.is_valid():
 			blocks_record = form.save()
 			
-			# Delete old transactions and recreate the linked transaction if needed
-			blocks_record.transactions.all().delete()
-			if blocks_record.is_investment:
-				_create_blocks_investment_transaction(blocks_record)
-			elif blocks_record.is_sale:
+			# Keep only sale-income sync behavior; investment never links to global expense.
+			blocks_record.transactions.filter(type=TransactionType.INCOME).delete()
+			if blocks_record.is_sale:
 				_create_blocks_sale_transaction(blocks_record)
 			
 			messages.success(request, "Blocks record updated successfully.")
@@ -2339,26 +2335,11 @@ def blocks_record_delete(request, pk):
 	if request.method != "POST":
 		return redirect("blocks_records")
 
-	# Delete associated transactions
-	blocks_record.transactions.all().delete()
+	# Only sale-income transactions are managed by the blocks module.
+	blocks_record.transactions.filter(type=TransactionType.INCOME).delete()
 	blocks_record.delete()
 	messages.success(request, "Blocks record deleted successfully.")
 	return redirect("blocks_records")
-
-
-def _create_blocks_investment_transaction(blocks_record):
-	"""Create transaction entries for blocks investment records."""
-	BLOCKS_INVESTMENT_CATEGORY = "Blocks Investment"
-	
-	if blocks_record.record_type == BlocksRecordType.INVESTMENT and blocks_record.investment:
-		Transaction.objects.create(
-			date=blocks_record.date,
-			amount=blocks_record.investment,
-			type=TransactionType.EXPENSE,
-			category=_get_or_create_predefined_category(BLOCKS_INVESTMENT_CATEGORY),
-			description=f"Investment for blocks production",
-			blocks_record=blocks_record,
-		)
 
 
 def _create_blocks_sale_transaction(blocks_record):

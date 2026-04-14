@@ -22,7 +22,8 @@ It is designed for businesses that need practical day-to-day control over:
 - Cash entry management (income and expense) with categories, links, optional attachments, and paginated list view
 - JCB operational records with hour calculation, income/expense summaries, paid-state flow, and paginated list view
 - Tipper records module with expense vs value-added tracking, optional descriptions, detail view, analytics cards, and paginated list view
-- Standardized paginated list views at 20 rows per page across sales, cash entries, JCB, and tipper tables
+- Blocks records module with investment, sale, and stock unit tracking plus dedicated analytics cards
+- Standardized paginated list views at 20 rows per page across sales, cash entries, JCB, tipper, and blocks tables
 - Alert center with overdue/upcoming pipeline, timeline history, and status resolution
 - Manual alert creation, editing, and deletion for custom reminders
 - Alert badge that emphasizes unresolved overdue items for quick action
@@ -64,7 +65,7 @@ CompanyFlowManagementApp/
 │   ├── apps.py
 │   ├── tests.py
 │   ├── migrations/
-│   │   ├── 0001_initial.py ... 0018_*.py
+│   │   ├── 0001_initial.py ... 0021_*.py
 │   │   └── __init__.py
 │   ├── management/
 │   │   └── commands/
@@ -90,6 +91,8 @@ CompanyFlowManagementApp/
 │       ├── customer_detail.html
 │       ├── customer_form.html
 │       ├── dashboard.html
+│       ├── blocks_records.html
+│       ├── blocks_record_form.html
 │       ├── jcb_records.html
 │       ├── jcb_record_form.html
 │       ├── manual_alert_form.html
@@ -106,6 +109,7 @@ CompanyFlowManagementApp/
 │           ├── alerts_content.html
 │           ├── dashboard_content.html
 │           ├── customer_payment_section.html
+│           ├── blocks_records_table.html
 │           ├── jcb_records_table.html
 │           ├── sales_table.html
 │           ├── sale_receipts_panel.html
@@ -141,6 +145,7 @@ Main routes include:
 - /customers/<id>/allocate-payment
 - /jcb-records, /jcb-records/new, /jcb-records/<id>/edit, /jcb-records/<id>/mark-paid, /jcb-records/<id>/delete
 - /tipper-records, /tipper-records/new, /tipper-records/<id>, /tipper-records/<id>/edit, /tipper-records/<id>/delete
+- /blocks-records, /blocks-records/new, /blocks-records/<id>/edit, /blocks-records/<id>/delete
 - /alerts, /alerts/badge
 - /alerts/manual/new, /alerts/manual/<id>/edit, /alerts/manual/<id>/delete
 - /alerts/notifications/<id>/resolve
@@ -239,36 +244,46 @@ python manage.py sync_paid_sales_income
 
 ### Dashboard
 
-![Dashboard](assets/screencapture-127-0-0-1-8000-2026-03-28-15_54_34.png)
+![Dashboard](assets/screencapture-127-0-0-1-9000-2026-04-14-07_42_05.png)
 
-### Sales
+### Authentication
 
-![Sales List](assets/screencapture-127-0-0-1-8000-sales-2026-03-28-15_56_29.png)
-![Add Sale](assets/screencapture-127-0-0-1-8000-sales-new-2026-03-28-15_56_44.png)
-
-### JCB Records
-
-![JCB Records](assets/screencapture-127-0-0-1-8000-jcb-records-2026-03-28-15_57_22.png)
-
-### Tipper Records
-
-![Tipper Records](assets/screencapture-127-0-0-1-8000-tipper-records-2026-03-28-15_57_54.png)
-![Add Tipper Record](assets/screencapture-127-0-0-1-8000-tipper-records-new-2026-03-28-15_58_07.png)
-
-### Customers
-
-![Customers List](assets/screencapture-127-0-0-1-8000-customers-2026-03-28-15_59_43.png)
-![Add Customer](assets/screencapture-127-0-0-1-8000-customers-new-2026-03-28-16_00_05.png)
+![Login](assets/screencapture-127-0-0-1-9000-accounts-login-2026-04-14-12_46_43.png)
+![Logout](assets/screencapture-127-0-0-1-9000-accounts-logout-2026-04-14-12_46_36.png)
 
 ### Cash Entries
 
-![Cash Entries](assets/screencapture-127-0-0-1-8000-cash-entries-2026-03-28-15_55_43.png)
-![Add Cash Entry](assets/screencapture-127-0-0-1-8000-cash-entries-new-2026-03-28-15_55_59.png)
+![Cash Entries](assets/screencapture-127-0-0-1-9000-cash-entries-2026-04-14-07_42_49.png)
+![Add Cash Entry](assets/screencapture-127-0-0-1-9000-cash-entries-new-2026-04-14-07_42_59.png)
+
+### Sales
+
+![Sales List](assets/screencapture-127-0-0-1-9000-sales-2026-04-14-07_43_18.png)
+![Add Sale](assets/screencapture-127-0-0-1-9000-sales-new-2026-04-14-07_43_34.png)
+
+### JCB Records
+
+![JCB Records](assets/screencapture-127-0-0-1-9000-jcb-records-2026-04-14-07_44_15.png)
+![Add JCB Record](assets/screencapture-127-0-0-1-9000-jcb-records-new-2026-04-14-07_44_25.png)
+
+### Tipper Records
+
+![Tipper Records](assets/screencapture-127-0-0-1-9000-tipper-records-2026-04-14-07_44_51.png)
+![Add Tipper Record](assets/screencapture-127-0-0-1-9000-tipper-records-new-2026-04-14-07_45_02.png)
+
+### Blocks Records
+
+![Blocks Records](assets/screencapture-127-0-0-1-9000-blocks-records-2026-04-14-07_45_28.png)
+
+### Customers
+
+![Customers List](assets/screencapture-127-0-0-1-9000-customers-2026-04-14-07_46_16.png)
+![Add Customer](assets/screencapture-127-0-0-1-9000-customers-new-2026-04-14-07_46_28.png)
 
 ### Alerts
 
-![Alerts](assets/screencapture-127-0-0-1-8000-alerts-2026-03-28-16_00_31.png)
-![Create Manual Alert](assets/screencapture-127-0-0-1-8000-alerts-manual-new-2026-03-28-16_00_45.png)
+![Alerts](assets/screencapture-127-0-0-1-9000-alerts-2026-04-14-07_46_56.png)
+![Create Manual Alert](assets/screencapture-127-0-0-1-9000-alerts-manual-new-2026-04-14-07_47_09.png)
 
 ## Testing and Validation
 
