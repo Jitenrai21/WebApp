@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Cement Records | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="cf-page-header">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">Cement Records</h1>
+                <p class="cf-page-subtitle">Manage inventory stock and track investment and sale records for cement production.</p>
+            </div>
+            <a href="{% url 'cement_record_create' %}" class="btn btn-primary">Add Cement Record</a>
+        </div>
+    </div>
+
+    <form
+        method="get"
+        class="cf-filter-panel grid gap-3 md:grid-cols-2 lg:grid-cols-7"
+        hx-get="{% url 'cement_records' %}"
+        hx-target="#cement-table-container"
+        hx-trigger="change, keyup delay:350ms from:input[name='q']"
+        hx-push-url="true"
+    >
+        <label class="form-control lg:col-span-2">
+            <span class="label-text mb-1">Search</span>
+            <input type="text" name="q" value="{{ filters.q }}" class="input input-bordered w-full" placeholder="Search notes..." />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">From</span>
+            <input type="date" name="date_from" value="{{ filters.date_from }}" class="input input-bordered w-full" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">To</span>
+            <input type="date" name="date_to" value="{{ filters.date_to }}" class="input input-bordered w-full" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Record Type</span>
+            <select name="record_type" class="select select-bordered w-full">
+                <option value="">All Types</option>
+                <option value="sale" {% if filters.record_type == 'sale' %}selected{% endif %}>Sale</option>
+                <option value="stock" {% if filters.record_type == 'stock' %}selected{% endif %}>Stock</option>
+                <option value="investment" {% if filters.record_type == 'investment' %}selected{% endif %}>Investment</option>
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Unit Type</span>
+            <select name="unit_type" class="select select-bordered w-full">
+                <option value="">All Units</option>
+                {% for value, label in unit_type_choices %}
+                    <option value="{{ value }}" {% if filters.unit_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Sort</span>
+            <select name="sort" class="select select-bordered w-full">
+                <option value="-date" {% if filters.sort == '-date' %}selected{% endif %}>Date (Newest)</option>
+                <option value="date" {% if filters.sort == 'date' %}selected{% endif %}>Date (Oldest)</option>
+                <option value="-investment" {% if filters.sort == '-investment' %}selected{% endif %}>Investment (High)</option>
+                <option value="investment" {% if filters.sort == 'investment' %}selected{% endif %}>Investment (Low)</option>
+                <option value="-income" {% if filters.sort == '-income' %}selected{% endif %}>Sale Income (High)</option>
+                <option value="income" {% if filters.sort == 'income' %}selected{% endif %}>Sale Income (Low)</option>
+            </select>
+        </label>
+        <div class="md:col-span-2 lg:col-span-7 flex flex-wrap gap-2 pt-1">
+            <button class="btn btn-outline btn-sm" type="submit">Apply Filters</button>
+            <a href="{% url 'cement_records' %}" class="btn btn-ghost btn-sm">Reset</a>
+        </div>
+    </form>
+
+    <div id="cement-table-container">
+        {% include 'core/partials/cement_records_table.html' %}
+    </div>
+</div>
+{% endblock %}

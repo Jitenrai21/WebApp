@@ -1,0 +1,135 @@
+<div class="cf-table-shell">
+    {% load core_format %}
+    <div class="cf-table-head">
+        <h2 class="font-semibold">Cement Records</h2>
+        <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="table table-zebra table-md">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Record Type</th>
+                    <th>Unit Type</th>
+                    <th>Quantity</th>
+                    <th>Investment</th>
+                    <th>Sale Income</th>
+                    <th>Notes</th>
+                    <th class="text-right whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in cement_records %}
+                <tr>
+                    <td><span class="font-medium">{{ record.date }}</span></td>
+                    <td>
+                        {% if record.record_type == 'sale' %}
+                            <div class="badge badge-sm badge-success badge-outline gap-1 whitespace-nowrap">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 2a1 1 0 01.894.553l1.382 2.764 3.052.443a1 1 0 01.554 1.706l-2.208 2.152.521 3.04a1 1 0 01-1.451 1.054L10 12.347l-2.744 1.443a1 1 0 01-1.451-1.054l.52-3.04-2.207-2.152a1 1 0 01.554-1.706l3.052-.443 1.382-2.764A1 1 0 0110 2z" /></svg>
+                                Sale
+                            </div>
+                        {% elif record.record_type == 'investment' %}
+                            <div class="badge badge-sm badge-error badge-outline gap-1 whitespace-nowrap">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M4 3a1 1 0 00-1 1v12a1 1 0 001.447.894L10 14.118l5.553 2.776A1 1 0 0017 16V4a1 1 0 00-1-1H4z" /></svg>
+                                Investment
+                            </div>
+                        {% else %}
+                            <div class="badge badge-sm badge-neutral badge-outline gap-1 whitespace-nowrap">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M4 4.5A2.5 2.5 0 016.5 2h7A2.5 2.5 0 0116 4.5v8a2.5 2.5 0 01-2.5 2.5h-7A2.5 2.5 0 014 12.5v-8zM6.5 4a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h7a.5.5 0 00.5-.5v-8a.5.5 0 00-.5-.5h-7z" /><path d="M5.5 13.5a1 1 0 00-.93 1.366l1.5 3.75A1 1 0 007 19h6a1 1 0 00.93-.634l1.5-3.75a1 1 0 00-.93-1.366h-9z" /></svg>
+                                Stock
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>{{ record.get_unit_type_display|default:"-" }}</td>
+                    <td>{{ record.quantity|default:"-" }}</td>
+                    <td>
+                        {% if record.investment %}
+                            <span class="text-error font-medium">NPR {{ record.investment|npr_amount }}</span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.sale_income %}
+                            <span class="text-success font-medium">NPR {{ record.sale_income|npr_amount }}</span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.notes %}
+                            <span class="truncate text-xs max-w-xs text-base-content/70">{{ record.notes }}</span>
+                        {% else %}
+                            <span class="text-base-content/50 italic">No notes</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right align-middle">
+                        <div class="inline-flex min-h-8 items-center justify-end gap-1 whitespace-nowrap">
+                            <div class="hidden md:flex items-center justify-end gap-1">
+                                <a href="{% url 'cement_record_edit' record.id %}" class="btn btn-xs btn-square btn-outline" title="Edit record" aria-label="Edit cement record {{ record.id }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M13.586 2.586a2 2 0 112.828 2.828l-8.9 8.9a1 1 0 01-.424.26l-3 1a1 1 0 01-1.264-1.264l1-3a1 1 0 01.26-.424l8.9-8.9z" /></svg>
+                                </a>
+                                <form method="post"
+                                      action="{% url 'cement_record_delete' record.id %}"
+                                      hx-post="{% url 'cement_record_delete' record.id %}"
+                                      hx-target="closest tr"
+                                      hx-swap="delete"
+                                      onsubmit="return confirm('Delete this Cement record? This cannot be undone.');"
+                                      class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-xs btn-square btn-error btn-outline" title="Delete record" aria-label="Delete cement record {{ record.id }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.894.553L5.382 4H3a1 1 0 000 2h.293l.94 9.405A2 2 0 006.222 17h7.556a2 2 0 001.989-1.595L16.707 6H17a1 1 0 100-2h-2.382l-.724-1.447A1 1 0 0013 2H7zm2 5a1 1 0 10-2 0v6a1 1 0 102 0V7zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V7z" clip-rule="evenodd" /></svg>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div class="dropdown dropdown-end md:hidden">
+                                <label tabindex="0" class="btn btn-xs btn-outline">Actions</label>
+                                <div tabindex="0" class="dropdown-content z-[1] mt-2 w-44 rounded-box border border-base-300 bg-base-100 p-2 shadow">
+                                    <div class="flex flex-col gap-1">
+                                        <a href="{% url 'cement_record_edit' record.id %}" class="btn btn-xs btn-ghost justify-start">Edit</a>
+                                        <form method="post"
+                                              action="{% url 'cement_record_delete' record.id %}"
+                                              hx-post="{% url 'cement_record_delete' record.id %}"
+                                              hx-target="closest tr"
+                                              hx-swap="delete"
+                                              onsubmit="return confirm('Delete this Cement record? This cannot be undone.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-xs btn-error btn-outline w-full justify-start">Delete</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-8">
+                        <div class="space-y-2">
+                            <p class="text-base-content/70">No cement records found.</p>
+                            <a href="{% url 'cement_record_create' %}" class="btn btn-sm btn-primary">Create First Record</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="cf-pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.record_type %}&record_type={{ filters.record_type }}{% endif %}{% if filters.unit_type %}&unit_type={{ filters.unit_type }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}" class="btn btn-sm btn-outline">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.record_type %}&record_type={{ filters.record_type }}{% endif %}{% if filters.unit_type %}&unit_type={{ filters.unit_type }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}" class="btn btn-sm btn-outline">Previous</a>
+        {% endif %}
+
+        <span class="text-sm">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.record_type %}&record_type={{ filters.record_type }}{% endif %}{% if filters.unit_type %}&unit_type={{ filters.unit_type }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}" class="btn btn-sm btn-outline">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if filters.q %}&q={{ filters.q|urlencode }}{% endif %}{% if filters.record_type %}&record_type={{ filters.record_type }}{% endif %}{% if filters.unit_type %}&unit_type={{ filters.unit_type }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.sort %}&sort={{ filters.sort }}{% endif %}" class="btn btn-sm btn-outline">Last</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

@@ -146,6 +146,14 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{% url 'cement_records' %}" class="{% if '/cement-records' in request.path %}active{% endif %}">
+                            <span class="inline-flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.25 2.5A1.75 1.75 0 008 4.25h4A1.75 1.75 0 0013.75 2.5V2h-7.5v.5z" /><path d="M5.5 4.5a2 2 0 00-2 2v8A3.5 3.5 0 007 18h6a3.5 3.5 0 003.5-3.5v-8a2 2 0 00-2-2h-9zM7.25 8a.75.75 0 01.75-.75h4a.75.75 0 010 1.5h-4A.75.75 0 017.25 8zm0 3a.75.75 0 01.75-.75h4a.75.75 0 010 1.5h-4a.75.75 0 01-.75-.75zm0 3a.75.75 0 01.75-.75h2a.75.75 0 010 1.5h-2a.75.75 0 01-.75-.75z" /></svg>
+                                <span>Cement Records</span>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{% url 'customers' %}" class="{% if '/customers' in request.path %}active{% endif %}">
                             <span class="inline-flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3a4 4 0 110 8 4 4 0 010-8zm-7 13a7 7 0 1114 0H3z" /></svg>

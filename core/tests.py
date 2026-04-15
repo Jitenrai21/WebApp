@@ -15,6 +15,9 @@ from .models import (
 	AlertType,
 	BlocksRecord,
 	BlocksRecordType,
+	CementRecord,
+	CementRecordType,
+	CementUnitType,
 	Customer,
 	CustomerType,
 	JCBRecord,
@@ -1051,3 +1054,94 @@ class BlocksInvestmentLedgerSyncTests(TestCase):
 		self.assertEqual(response.status_code, 302)
 		expense_tx.refresh_from_db()
 		self.assertIsNone(expense_tx.blocks_record)
+
+
+class CementInvestmentLedgerSyncTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="cement-sync", password="pass1234")
+
+	def test_invalid_unit_type_is_rejected(self):
+		self.client.login(username="cement-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("cement_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": CementRecordType.STOCK,
+				"unit_type": "4_inch",
+				"quantity": "10",
+				"notes": "Should fail",
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		self.assertFalse(CementRecord.objects.exists())
+		self.assertContains(response, "Select a valid choice")
+
+	def test_create_investment_does_not_create_global_expense_transaction(self):
+		self.client.login(username="cement-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("cement_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": CementRecordType.INVESTMENT,
+				"investment": "1000.00",
+				"notes": "Cement and labor",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = CementRecord.objects.get(record_type=CementRecordType.INVESTMENT)
+		self.assertEqual(record.transactions.count(), 0)
+		self.assertFalse(
+			Transaction.objects.filter(
+				cement_record=record,
+				type=TransactionType.EXPENSE,
+			).exists()
+		)
+
+	def test_sale_record_still_creates_income_transaction(self):
+		self.client.login(username="cement-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("cement_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": CementRecordType.SALE,
+				"unit_type": CementUnitType.PPC,
+				"quantity": "10",
+				"price_per_unit": "100.00",
+				"notes": "Retail sale",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = CementRecord.objects.get(record_type=CementRecordType.SALE)
+		self.assertTrue(
+			Transaction.objects.filter(
+				cement_record=record,
+				type=TransactionType.INCOME,
+			).exists()
+		)
+
+	def test_delete_investment_record_does_not_delete_linked_expense_transaction(self):
+		self.client.login(username="cement-sync", password="pass1234")
+		record = CementRecord.objects.create(
+			date=timezone.localdate(),
+			record_type=CementRecordType.INVESTMENT,
+			investment=Decimal("500.00"),
+		)
+		expense_tx = Transaction.objects.create(
+			date=timezone.localdate(),
+			amount=Decimal("500.00"),
+			type=TransactionType.EXPENSE,
+			cement_record=record,
+		)
+
+		response = self.client.post(reverse("cement_record_delete", args=[record.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		expense_tx.refresh_from_db()
+		self.assertIsNone(expense_tx.cement_record)

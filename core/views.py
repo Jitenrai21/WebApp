@@ -16,6 +16,7 @@ from django.utils import timezone
 from .forms import (
 	BlocksRecordForm,
 	CustomerForm,
+	CementRecordForm,
 	JCBRecordForm,
 	ManualAlertForm,
 	SaleForm,
@@ -32,6 +33,9 @@ from .models import (
 	BlocksUnitType,
 	Customer,
 	CustomerPayment,
+	CementRecord,
+	CementRecordType,
+	CementUnitType,
 	JCBRecord,
 	PaymentAllocation,
 	PaymentMethod,
@@ -280,16 +284,19 @@ def _dashboard_context(date_from="", date_to=""):
 	jcb_queryset = JCBRecord.objects.all()
 	tipper_queryset = TipperRecord.objects.select_related("item")
 	blocks_queryset = BlocksRecord.objects.all()
+	cement_queryset = CementRecord.objects.all()
 	if date_from:
 		transactions_queryset = transactions_queryset.filter(date__gte=date_from)
 		jcb_queryset = jcb_queryset.filter(date__gte=date_from)
 		tipper_queryset = tipper_queryset.filter(date__gte=date_from)
 		blocks_queryset = blocks_queryset.filter(date__gte=date_from)
+		cement_queryset = cement_queryset.filter(date__gte=date_from)
 	if date_to:
 		transactions_queryset = transactions_queryset.filter(date__lte=date_to)
 		jcb_queryset = jcb_queryset.filter(date__lte=date_to)
 		tipper_queryset = tipper_queryset.filter(date__lte=date_to)
 		blocks_queryset = blocks_queryset.filter(date__lte=date_to)
+		cement_queryset = cement_queryset.filter(date__lte=date_to)
 
 	kpi_sales = sales_amount_queryset.aggregate(
 		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
@@ -500,6 +507,50 @@ def _dashboard_context(date_from="", date_to=""):
 		float(blocks_summary["total_sale_income"]),
 	]
 
+	# Cement Records Summary
+	cement_summary_raw = cement_queryset.aggregate(
+		total_investment=Coalesce(Sum("investment"), Value(Decimal("0.00"))),
+		total_sale_income=Coalesce(Sum("sale_income"), Value(Decimal("0.00"))),
+	)
+	cement_summary = {
+		"total_investment": cement_summary_raw["total_investment"],
+		"total_sale_income": cement_summary_raw["total_sale_income"],
+	}
+	cement_summary["net_value"] = cement_summary["total_sale_income"] - cement_summary["total_investment"]
+	cement_stock_by_unit = cement_queryset.filter(
+		record_type=CementRecordType.STOCK
+	).values("unit_type").annotate(
+		total_quantity=Coalesce(Sum("quantity"), Value(0))
+	).order_by("unit_type")
+	cement_summary["ppc_stock"] = next(
+		(row["total_quantity"] for row in cement_stock_by_unit if row["unit_type"] == CementUnitType.PPC),
+		0,
+	)
+	cement_summary["opc_stock"] = next(
+		(row["total_quantity"] for row in cement_stock_by_unit if row["unit_type"] == CementUnitType.OPC),
+		0,
+	)
+	cement_sold_by_unit = cement_queryset.filter(
+		record_type=CementRecordType.SALE
+	).values("unit_type").annotate(
+		total_quantity=Coalesce(Sum("quantity"), Value(0))
+	).order_by("unit_type")
+	ppc_sold = next(
+		(row["total_quantity"] for row in cement_sold_by_unit if row["unit_type"] == CementUnitType.PPC),
+		0,
+	)
+	opc_sold = next(
+		(row["total_quantity"] for row in cement_sold_by_unit if row["unit_type"] == CementUnitType.OPC),
+		0,
+	)
+	cement_summary["ppc_stock"] -= ppc_sold
+	cement_summary["opc_stock"] -= opc_sold
+	cement_summary_labels = ["Investment", "Sale Income"]
+	cement_summary_values = [
+		float(cement_summary["total_investment"]),
+		float(cement_summary["total_sale_income"]),
+	]
+
 	return {
 		"kpis": {
 			"total_sales": kpi_sales["total_sales"],
@@ -533,6 +584,9 @@ def _dashboard_context(date_from="", date_to=""):
 		"blocks_summary": blocks_summary,
 		"blocks_summary_labels": blocks_summary_labels,
 		"blocks_summary_values": blocks_summary_values,
+		"cement_summary": cement_summary,
+		"cement_summary_labels": cement_summary_labels,
+		"cement_summary_values": cement_summary_values,
 		"filters": {
 			"date_from": date_from,
 			"date_to": date_to,
@@ -2354,4 +2408,149 @@ def _create_blocks_sale_transaction(blocks_record):
 			category=_get_or_create_predefined_category(BLOCKS_SALE_INCOME_CATEGORY),
 			description=f"Income from {blocks_record.unit_type} blocks sale ({blocks_record.quantity} units @ {blocks_record.price_per_unit})",
 			blocks_record=blocks_record,
+		)
+
+
+# CEMENT RECORDS VIEWS
+
+
+@login_required
+def cement_records(request):
+	"""Display list of cement records with filtering and pagination."""
+	default_from, default_to = _get_default_date_range()
+	queryset = CementRecord.objects.all()
+
+	query = request.GET.get("q", "").strip()
+	record_type = request.GET.get("record_type", "").strip()
+	unit_type = request.GET.get("unit_type", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
+	sort = request.GET.get("sort", "-date")
+
+	if query:
+		queryset = queryset.filter(Q(notes__icontains=query) | Q(record_type__icontains=query))
+	if record_type:
+		queryset = queryset.filter(record_type=record_type)
+	if unit_type:
+		queryset = queryset.filter(unit_type=unit_type)
+	if date_from:
+		queryset = queryset.filter(date__gte=date_from)
+	if date_to:
+		queryset = queryset.filter(date__lte=date_to)
+
+	allowed_sorts = {
+		"-date": "-date",
+		"date": "date",
+		"-investment": "-investment",
+		"investment": "investment",
+		"-income": "-sale_income",
+		"income": "sale_income",
+	}
+	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
+
+	paginator = Paginator(queryset, 20)
+	page_obj = paginator.get_page(request.GET.get("page"))
+
+	context = {
+		"cement_records": page_obj.object_list,
+		"page_obj": page_obj,
+		"filters": {
+			"q": query,
+			"record_type": record_type,
+			"unit_type": unit_type,
+			"date_from": date_from,
+			"date_to": date_to,
+			"sort": sort,
+		},
+		"record_type_choices": CementRecordType.choices,
+		"unit_type_choices": CementUnitType.choices,
+	}
+
+	if request.headers.get("HX-Request"):
+		return render(request, "core/partials/cement_records_table.html", context)
+
+	return render(request, "core/cement_records.html", context)
+
+
+@login_required
+def cement_record_create(request):
+	"""Create a new cement record."""
+	if request.method == "POST":
+		form = CementRecordForm(request.POST)
+		if form.is_valid():
+			cement_record = form.save()
+			if cement_record.is_sale:
+				_create_cement_sale_transaction(cement_record)
+			messages.success(request, "Cement record created successfully.")
+			return redirect("cement_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = CementRecordForm(initial={"date": timezone.localdate()})
+
+	return render(
+		request,
+		"core/cement_record_form.html",
+		{
+			"form": form,
+			"form_title": "Add Cement Record",
+			"submit_label": "Create Record",
+		},
+	)
+
+
+@login_required
+def cement_record_edit(request, pk):
+	"""Edit an existing cement record."""
+	cement_record = get_object_or_404(CementRecord, pk=pk)
+
+	if request.method == "POST":
+		form = CementRecordForm(request.POST, instance=cement_record)
+		if form.is_valid():
+			cement_record = form.save()
+			cement_record.transactions.filter(type=TransactionType.INCOME).delete()
+			if cement_record.is_sale:
+				_create_cement_sale_transaction(cement_record)
+			messages.success(request, "Cement record updated successfully.")
+			return redirect("cement_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = CementRecordForm(instance=cement_record)
+
+	return render(
+		request,
+		"core/cement_record_form.html",
+		{
+			"form": form,
+			"form_title": "Edit Cement Record",
+			"submit_label": "Update Record",
+		},
+	)
+
+
+@login_required
+def cement_record_delete(request, pk):
+	"""Delete a cement record."""
+	cement_record = get_object_or_404(CementRecord, pk=pk)
+
+	if request.method != "POST":
+		return redirect("cement_records")
+
+	cement_record.transactions.filter(type=TransactionType.INCOME).delete()
+	cement_record.delete()
+	messages.success(request, "Cement record deleted successfully.")
+	return redirect("cement_records")
+
+
+def _create_cement_sale_transaction(cement_record):
+	"""Create transaction entries for cement sale records."""
+	CEMENT_SALE_INCOME_CATEGORY = "Cement Sale Income"
+
+	if cement_record.record_type == CementRecordType.SALE and cement_record.sale_income:
+		Transaction.objects.create(
+			date=cement_record.date,
+			amount=cement_record.sale_income,
+			type=TransactionType.INCOME,
+			category=_get_or_create_predefined_category(CEMENT_SALE_INCOME_CATEGORY),
+			description=f"Income from {cement_record.unit_type} cement sale ({cement_record.quantity} units @ {cement_record.price_per_unit})",
+			cement_record=cement_record,
 		)

@@ -7,6 +7,9 @@ from .models import (
     BlocksUnitType,
     Customer,
     CustomerPayment,
+    CementRecord,
+    CementRecordType,
+    CementUnitType,
     JCBRecord,
     PaymentAllocation,
     Sale,
@@ -52,19 +55,20 @@ class TransactionAdmin(admin.ModelAdmin):
         "date",
         "customer",
         "sale",
+        "cement_record",
         "jcb_record",
         "type",
         "payment_method",
         "category",
         "amount",
     )
-    list_filter = ("type", "payment_method", "date", "category", "sale", "jcb_record")
+    list_filter = ("type", "payment_method", "date", "category", "sale", "cement_record", "jcb_record")
     search_fields = (
         "customer__name",
         "category__name",
         "description",
     )
-    autocomplete_fields = ("customer", "sale", "jcb_record", "category")
+    autocomplete_fields = ("customer", "sale", "cement_record", "jcb_record", "category")
     date_hierarchy = "date"
     ordering = ("-date",)
 
@@ -168,6 +172,27 @@ class TipperRecordAdmin(admin.ModelAdmin):
 
 @admin.register(BlocksRecord)
 class BlocksRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "record_type",
+        "unit_type",
+        "quantity",
+        "investment",
+        "sale_income",
+    )
+    list_filter = ("record_type", "unit_type", "date")
+    search_fields = ("notes",)
+    date_hierarchy = "date"
+    ordering = ("-date", "-created_at")
+    fieldsets = (
+        ("Record Information", {"fields": ("date", "record_type", "notes")}),
+        ("Financial Fields", {"fields": ("investment", "sale_income")}),
+        ("Stock Fields", {"fields": ("unit_type", "quantity", "price_per_unit")}),
+    )
+
+
+@admin.register(CementRecord)
+class CementRecordAdmin(admin.ModelAdmin):
     list_display = (
         "date",
         "record_type",

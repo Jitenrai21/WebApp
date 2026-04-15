@@ -233,6 +233,60 @@
             </div>
         </div>
     </div>
+
+    <div class="cf-section">
+        <div class="card-body gap-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="card-title text-xl">Cement Records Summary</h2>
+                    <p class="text-sm text-base-content/70">Investment, income, and inventory stock for cement in the selected date range.</p>
+                </div>
+                <a href="{% url 'cement_records' %}" class="btn btn-outline btn-sm">View All Cement Records</a>
+            </div>
+            <div class="space-y-4">
+                <div class="grid gap-4 lg:grid-cols-3">
+                    <div class="cf-section lg:col-span-2 h-full">
+                        <div class="card-body h-full flex flex-col">
+                            <h3 class="card-title text-lg">Investment vs Sale Income</h3>
+                            <div class="cf-chart-shell flex-1 min-h-64 lg:min-h-full">
+                                <div id="cement-summary-chart" class="h-full w-full" role="img" tabindex="0" aria-label="Cement investment versus sale income chart"></div>
+                                <p class="sr-only">Cement summary chart combining investment and sale income.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                        <div class="cf-kpi-card cf-kpi-card--expense">
+                            <p class="kpi-label !mt-0">Total Investment</p>
+                            <p class="kpi-value !mt-0 text-error js-npr-value" data-npr-value="{{ cement_summary.total_investment }}">NPR {{ cement_summary.total_investment|npr_amount }}</p>
+                            <p class="kpi-note">Total investment in cement</p>
+                        </div>
+                        <div class="cf-kpi-card cf-kpi-card--income">
+                            <p class="kpi-label !mt-0">Sale Income</p>
+                            <p class="kpi-value !mt-0 text-success js-npr-value" data-npr-value="{{ cement_summary.total_sale_income }}">NPR {{ cement_summary.total_sale_income|npr_amount }}</p>
+                            <p class="kpi-note">Total income from sales</p>
+                        </div>
+                        <div class="cf-kpi-card cf-kpi-card--sales">
+                            <p class="kpi-label !mt-0">Net Value</p>
+                            <p class="kpi-value !mt-0 js-npr-value" data-npr-value="{{ cement_summary.net_value }}">NPR {{ cement_summary.net_value|npr_amount }}</p>
+                            <p class="kpi-note">Sale Income minus Investment</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="cf-kpi-card cf-kpi-card--receivable">
+                        <p class="kpi-label !mt-0">PPC Stock</p>
+                        <p class="kpi-value !mt-0">{{ cement_summary.ppc_stock }}</p>
+                        <p class="kpi-note">Available units in stock</p>
+                    </div>
+                    <div class="cf-kpi-card cf-kpi-card--receivable">
+                        <p class="kpi-label !mt-0">OPC Stock</p>
+                        <p class="kpi-value !mt-0">{{ cement_summary.opc_stock }}</p>
+                        <p class="kpi-note">Available units in stock</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
         <div class="grid gap-4 lg:grid-cols-1 cf-mobile-hide-chart">
         <div class="cf-section">
@@ -409,4 +463,6 @@
     {{ tipper_summary_values|json_script:'tipper-summary-values' }}
     {{ blocks_summary_labels|json_script:'blocks-summary-labels' }}
     {{ blocks_summary_values|json_script:'blocks-summary-values' }}
+    {{ cement_summary_labels|json_script:'cement-summary-labels' }}
+    {{ cement_summary_values|json_script:'cement-summary-values' }}
 </div>
