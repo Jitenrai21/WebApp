@@ -24,6 +24,7 @@ It is designed for businesses that need practical day-to-day control over:
 - Tipper records module with expense vs value-added tracking, optional descriptions, detail view, analytics cards, and paginated list view
 - Blocks records module with investment, sale, and stock unit tracking plus dedicated analytics cards
 - Cement records module with investment, sale, and stock unit tracking plus PPC/OPC inventory control
+- Bamboo records module with investment, sale, and stock tracking (no unit type) plus dedicated analytics cards
 - Standardized paginated list views at 20 rows per page across sales, cash entries, JCB, tipper, blocks, and cement tables
 - Alert center with overdue/upcoming pipeline, timeline history, and status resolution
 - Manual alert creation, editing, and deletion for custom reminders
@@ -66,7 +67,7 @@ CompanyFlowManagementApp/
 │   ├── apps.py
 │   ├── tests.py
 │   ├── migrations/
-│   │   ├── 0001_initial.py ... 0021_*.py
+│   │   ├── 0001_initial.py ... 0024_*.py
 │   │   └── __init__.py
 │   ├── management/
 │   │   └── commands/
@@ -94,6 +95,8 @@ CompanyFlowManagementApp/
 │       ├── dashboard.html
 │       ├── blocks_records.html
 │       ├── blocks_record_form.html
+│       ├── bamboo_records.html
+│       ├── bamboo_record_form.html
 │       ├── jcb_records.html
 │       ├── jcb_record_form.html
 │       ├── manual_alert_form.html
@@ -111,6 +114,7 @@ CompanyFlowManagementApp/
 │           ├── dashboard_content.html
 │           ├── customer_payment_section.html
 │           ├── blocks_records_table.html
+│           ├── bamboo_records_table.html
 │           ├── jcb_records_table.html
 │           ├── sales_table.html
 │           ├── sale_receipts_panel.html
@@ -133,6 +137,7 @@ Key entities in the application:
 - TipperItem: normalized item/entity for tipper tracking
 - TipperRecord: tipper expense and value-added transactional rows with optional description notes
 - CementRecord: cement inventory, investment, and sale records with PPC/OPC unit types
+- BambooRecord: bamboo inventory, investment, and sale records without unit-type classification
 - AlertNotification: overdue/upcoming/manual timeline alerts with active/resolved state
 
 ## URL Surface
@@ -148,6 +153,7 @@ Main routes include:
 - /jcb-records, /jcb-records/new, /jcb-records/<id>/edit, /jcb-records/<id>/mark-paid, /jcb-records/<id>/delete
 - /tipper-records, /tipper-records/new, /tipper-records/<id>, /tipper-records/<id>/edit, /tipper-records/<id>/delete
 - /cement-records, /cement-records/new, /cement-records/<id>/edit, /cement-records/<id>/delete
+- /bamboo-records, /bamboo-records/new, /bamboo-records/<id>/edit, /bamboo-records/<id>/delete
 - /blocks-records, /blocks-records/new, /blocks-records/<id>/edit, /blocks-records/<id>/delete
 - /alerts, /alerts/badge
 - /alerts/manual/new, /alerts/manual/<id>/edit, /alerts/manual/<id>/delete

@@ -13,6 +13,8 @@ from .models import (
 	AlertNotification,
 	AlertSource,
 	AlertType,
+	BambooRecord,
+	BambooRecordType,
 	BlocksRecord,
 	BlocksRecordType,
 	CementRecord,
@@ -1145,3 +1147,75 @@ class CementInvestmentLedgerSyncTests(TestCase):
 		self.assertEqual(response.status_code, 302)
 		expense_tx.refresh_from_db()
 		self.assertIsNone(expense_tx.cement_record)
+
+
+class BambooInvestmentLedgerSyncTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="bamboo-sync", password="pass1234")
+
+	def test_create_investment_does_not_create_global_expense_transaction(self):
+		self.client.login(username="bamboo-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("bamboo_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": BambooRecordType.INVESTMENT,
+				"investment": "1000.00",
+				"notes": "Bamboo purchase",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = BambooRecord.objects.get(record_type=BambooRecordType.INVESTMENT)
+		self.assertEqual(record.transactions.count(), 0)
+		self.assertFalse(
+			Transaction.objects.filter(
+				bamboo_record=record,
+				type=TransactionType.EXPENSE,
+			).exists()
+		)
+
+	def test_sale_record_still_creates_income_transaction(self):
+		self.client.login(username="bamboo-sync", password="pass1234")
+
+		response = self.client.post(
+			reverse("bamboo_record_create"),
+			data={
+				"date": timezone.localdate().isoformat(),
+				"record_type": BambooRecordType.SALE,
+				"quantity": "10",
+				"price_per_unit": "100.00",
+				"notes": "Retail sale",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = BambooRecord.objects.get(record_type=BambooRecordType.SALE)
+		self.assertTrue(
+			Transaction.objects.filter(
+				bamboo_record=record,
+				type=TransactionType.INCOME,
+			).exists()
+		)
+
+	def test_delete_investment_record_does_not_delete_linked_expense_transaction(self):
+		self.client.login(username="bamboo-sync", password="pass1234")
+		record = BambooRecord.objects.create(
+			date=timezone.localdate(),
+			record_type=BambooRecordType.INVESTMENT,
+			investment=Decimal("500.00"),
+		)
+		expense_tx = Transaction.objects.create(
+			date=timezone.localdate(),
+			amount=Decimal("500.00"),
+			type=TransactionType.EXPENSE,
+			bamboo_record=record,
+		)
+
+		response = self.client.post(reverse("bamboo_record_delete", args=[record.pk]))
+
+		self.assertEqual(response.status_code, 302)
+		expense_tx.refresh_from_db()
+		self.assertIsNone(expense_tx.bamboo_record)

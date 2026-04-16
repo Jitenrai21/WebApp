@@ -122,6 +122,13 @@ class Transaction(TimeStampedModel):
         blank=True,
         null=True,
     )
+    bamboo_record = models.ForeignKey(
+        "BambooRecord",
+        on_delete=models.SET_NULL,
+        related_name="transactions",
+        blank=True,
+        null=True,
+    )
     attachment = models.FileField(upload_to="transactions/", blank=True, null=True)
 
     class Meta:
@@ -597,3 +604,87 @@ class CementRecord(TimeStampedModel):
     @property
     def is_sale(self) -> bool:
         return self.record_type == CementRecordType.SALE
+
+
+class BambooRecordType(models.TextChoices):
+    INVESTMENT = "investment", "Investment"
+    STOCK = "stock", "Stock (Addition)"
+    SALE = "sale", "Sale"
+
+
+class BambooRecord(TimeStampedModel):
+    """Model for managing inventory and investment/sales records for bamboo."""
+    date = models.DateField(default=timezone.now)
+    record_type = models.CharField(
+        max_length=20,
+        choices=BambooRecordType.choices,
+        help_text="Type of record: investment, stock inventory update, or sale",
+    )
+
+    investment = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Amount spent on bamboo procurement or processing",
+    )
+    sale_income = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Auto-calculated: quantity × price (for sale records)",
+    )
+
+    quantity = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        help_text="Number of units (for stock addition or sale)",
+    )
+    price_per_unit = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Price per unit (for sale records)",
+    )
+
+    notes = models.TextField(blank=True, help_text="Additional details or remarks")
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(fields=["date"]),
+            models.Index(fields=["record_type"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_record_type_display()} - {self.date}"
+
+    def save(self, *args, **kwargs):
+        """Auto-calculate sale_income for SALE records and validate fields."""
+        if self.record_type == BambooRecordType.SALE:
+            if self.quantity and self.price_per_unit:
+                quantity_decimal = Decimal(str(self.quantity))
+                price_decimal = Decimal(str(self.price_per_unit))
+                self.sale_income = (quantity_decimal * price_decimal).quantize(Decimal("0.01"))
+            else:
+                self.sale_income = None
+
+        super().save(*args, **kwargs)
+
+    @property
+    def is_investment(self) -> bool:
+        return self.record_type == BambooRecordType.INVESTMENT
+
+    @property
+    def is_financial(self) -> bool:
+        return self.is_investment
+
+    @property
+    def is_stock(self) -> bool:
+        return self.record_type == BambooRecordType.STOCK
+
+    @property
+    def is_sale(self) -> bool:
+        return self.record_type == BambooRecordType.SALE

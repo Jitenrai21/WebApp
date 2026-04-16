@@ -14,6 +14,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 
 from .forms import (
+	BambooRecordForm,
 	BlocksRecordForm,
 	CustomerForm,
 	CementRecordForm,
@@ -28,6 +29,8 @@ from .models import (
 	AlertNotification,
 	AlertSource,
 	AlertType,
+	BambooRecord,
+	BambooRecordType,
 	BlocksRecord,
 	BlocksRecordType,
 	BlocksUnitType,
@@ -285,18 +288,21 @@ def _dashboard_context(date_from="", date_to=""):
 	tipper_queryset = TipperRecord.objects.select_related("item")
 	blocks_queryset = BlocksRecord.objects.all()
 	cement_queryset = CementRecord.objects.all()
+	bamboo_queryset = BambooRecord.objects.all()
 	if date_from:
 		transactions_queryset = transactions_queryset.filter(date__gte=date_from)
 		jcb_queryset = jcb_queryset.filter(date__gte=date_from)
 		tipper_queryset = tipper_queryset.filter(date__gte=date_from)
 		blocks_queryset = blocks_queryset.filter(date__gte=date_from)
 		cement_queryset = cement_queryset.filter(date__gte=date_from)
+		bamboo_queryset = bamboo_queryset.filter(date__gte=date_from)
 	if date_to:
 		transactions_queryset = transactions_queryset.filter(date__lte=date_to)
 		jcb_queryset = jcb_queryset.filter(date__lte=date_to)
 		tipper_queryset = tipper_queryset.filter(date__lte=date_to)
 		blocks_queryset = blocks_queryset.filter(date__lte=date_to)
 		cement_queryset = cement_queryset.filter(date__lte=date_to)
+		bamboo_queryset = bamboo_queryset.filter(date__lte=date_to)
 
 	kpi_sales = sales_amount_queryset.aggregate(
 		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
@@ -551,6 +557,28 @@ def _dashboard_context(date_from="", date_to=""):
 		float(cement_summary["total_sale_income"]),
 	]
 
+	# Bamboo Records Summary
+	bamboo_summary_raw = bamboo_queryset.aggregate(
+		total_investment=Coalesce(Sum("investment"), Value(Decimal("0.00"))),
+		total_sale_income=Coalesce(Sum("sale_income"), Value(Decimal("0.00"))),
+	)
+	bamboo_summary = {
+		"total_investment": bamboo_summary_raw["total_investment"],
+		"total_sale_income": bamboo_summary_raw["total_sale_income"],
+	}
+	bamboo_summary["net_value"] = bamboo_summary["total_sale_income"] - bamboo_summary["total_investment"]
+	bamboo_stock_total = bamboo_queryset.filter(record_type=BambooRecordType.STOCK).aggregate(
+		total_quantity=Coalesce(Sum("quantity"), Value(0))
+	)["total_quantity"]
+	bamboo_sold_total = bamboo_queryset.filter(record_type=BambooRecordType.SALE).aggregate(
+		total_quantity=Coalesce(Sum("quantity"), Value(0))
+	)["total_quantity"]
+	bamboo_summary["available_stock"] = bamboo_stock_total - bamboo_sold_total
+	bamboo_summary_values = [
+		float(bamboo_summary["total_investment"]),
+		float(bamboo_summary["total_sale_income"]),
+	]
+
 	return {
 		"kpis": {
 			"total_sales": kpi_sales["total_sales"],
@@ -587,6 +615,9 @@ def _dashboard_context(date_from="", date_to=""):
 		"cement_summary": cement_summary,
 		"cement_summary_labels": cement_summary_labels,
 		"cement_summary_values": cement_summary_values,
+		"bamboo_summary": bamboo_summary,
+		"bamboo_summary_labels": ["Investment", "Sale Income"],
+		"bamboo_summary_values": bamboo_summary_values,
 		"filters": {
 			"date_from": date_from,
 			"date_to": date_to,
@@ -1002,7 +1033,7 @@ def dashboard(request):
 @login_required
 def cash_entries(request):
 	default_from, default_to = _get_default_date_range()
-	transactions = Transaction.objects.select_related("customer", "sale", "jcb_record", "category").exclude(
+	transactions = Transaction.objects.select_related("customer", "sale", "bamboo_record", "cement_record", "jcb_record", "category").exclude(
 		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
 	)
 
@@ -1068,7 +1099,7 @@ def cash_entries(request):
 @login_required
 def transaction_detail(request, pk):
 	transaction_obj = get_object_or_404(
-		Transaction.objects.select_related("customer", "sale", "jcb_record"),
+		Transaction.objects.select_related("customer", "sale", "bamboo_record", "cement_record", "jcb_record"),
 		pk=pk,
 	)
 
@@ -2553,4 +2584,144 @@ def _create_cement_sale_transaction(cement_record):
 			category=_get_or_create_predefined_category(CEMENT_SALE_INCOME_CATEGORY),
 			description=f"Income from {cement_record.unit_type} cement sale ({cement_record.quantity} units @ {cement_record.price_per_unit})",
 			cement_record=cement_record,
+		)
+
+
+# BAMBOO RECORDS VIEWS
+
+
+@login_required
+def bamboo_records(request):
+	"""Display list of bamboo records with filtering and pagination."""
+	default_from, default_to = _get_default_date_range()
+	queryset = BambooRecord.objects.all()
+
+	query = request.GET.get("q", "").strip()
+	record_type = request.GET.get("record_type", "").strip()
+	date_from = request.GET.get("date_from", "").strip() or default_from
+	date_to = request.GET.get("date_to", "").strip() or default_to
+	sort = request.GET.get("sort", "-date")
+
+	if query:
+		queryset = queryset.filter(Q(notes__icontains=query) | Q(record_type__icontains=query))
+	if record_type:
+		queryset = queryset.filter(record_type=record_type)
+	if date_from:
+		queryset = queryset.filter(date__gte=date_from)
+	if date_to:
+		queryset = queryset.filter(date__lte=date_to)
+
+	allowed_sorts = {
+		"-date": "-date",
+		"date": "date",
+		"-investment": "-investment",
+		"investment": "investment",
+		"-income": "-sale_income",
+		"income": "sale_income",
+	}
+	queryset = queryset.order_by(allowed_sorts.get(sort, "-date"), "-created_at")
+
+	paginator = Paginator(queryset, 20)
+	page_obj = paginator.get_page(request.GET.get("page"))
+
+	context = {
+		"bamboo_records": page_obj.object_list,
+		"page_obj": page_obj,
+		"filters": {
+			"q": query,
+			"record_type": record_type,
+			"date_from": date_from,
+			"date_to": date_to,
+			"sort": sort,
+		},
+		"record_type_choices": BambooRecordType.choices,
+	}
+
+	if request.headers.get("HX-Request"):
+		return render(request, "core/partials/bamboo_records_table.html", context)
+
+	return render(request, "core/bamboo_records.html", context)
+
+
+@login_required
+def bamboo_record_create(request):
+	"""Create a new bamboo record."""
+	if request.method == "POST":
+		form = BambooRecordForm(request.POST)
+		if form.is_valid():
+			bamboo_record = form.save()
+			if bamboo_record.is_sale:
+				_create_bamboo_sale_transaction(bamboo_record)
+			messages.success(request, "Bamboo record created successfully.")
+			return redirect("bamboo_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = BambooRecordForm(initial={"date": timezone.localdate()})
+
+	return render(
+		request,
+		"core/bamboo_record_form.html",
+		{
+			"form": form,
+			"form_title": "Add Bamboo Record",
+			"submit_label": "Create Record",
+		},
+	)
+
+
+@login_required
+def bamboo_record_edit(request, pk):
+	"""Edit an existing bamboo record."""
+	bamboo_record = get_object_or_404(BambooRecord, pk=pk)
+
+	if request.method == "POST":
+		form = BambooRecordForm(request.POST, instance=bamboo_record)
+		if form.is_valid():
+			bamboo_record = form.save()
+			bamboo_record.transactions.filter(type=TransactionType.INCOME).delete()
+			if bamboo_record.is_sale:
+				_create_bamboo_sale_transaction(bamboo_record)
+			messages.success(request, "Bamboo record updated successfully.")
+			return redirect("bamboo_records")
+		messages.error(request, "Please fix the errors below.")
+	else:
+		form = BambooRecordForm(instance=bamboo_record)
+
+	return render(
+		request,
+		"core/bamboo_record_form.html",
+		{
+			"form": form,
+			"form_title": "Edit Bamboo Record",
+			"submit_label": "Update Record",
+		},
+	)
+
+
+@login_required
+def bamboo_record_delete(request, pk):
+	"""Delete a bamboo record."""
+	bamboo_record = get_object_or_404(BambooRecord, pk=pk)
+
+	if request.method != "POST":
+		return redirect("bamboo_records")
+
+	bamboo_record.transactions.filter(type=TransactionType.INCOME).delete()
+	bamboo_record.delete()
+	messages.success(request, "Bamboo record deleted successfully.")
+	return redirect("bamboo_records")
+
+
+def _create_bamboo_sale_transaction(bamboo_record):
+	"""Create transaction entries for bamboo sale records."""
+	BAMBOO_SALE_INCOME_CATEGORY = "Bamboo Sale Income"
+
+	if bamboo_record.record_type == BambooRecordType.SALE and bamboo_record.sale_income:
+		Transaction.objects.create(
+			date=bamboo_record.date,
+			amount=bamboo_record.sale_income,
+			type=TransactionType.INCOME,
+			category=_get_or_create_predefined_category(BAMBOO_SALE_INCOME_CATEGORY),
+			description=f"Income from bamboo sale ({bamboo_record.quantity} units @ {bamboo_record.price_per_unit})",
+			bamboo_record=bamboo_record,
 		)

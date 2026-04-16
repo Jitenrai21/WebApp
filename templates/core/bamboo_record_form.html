@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ form_title }} | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+    <div class="cf-page-header">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">{{ form_title }}</h1>
+                <p class="cf-page-subtitle">Record investment, stock additions, or sales for bamboo inventory.</p>
+            </div>
+            <a href="{% url 'bamboo_records' %}" class="btn btn-outline">Back to Bamboo Records</a>
+        </div>
+    </div>
+
+    <form method="post" class="cf-section p-5 sm:p-6 space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <span>{{ form.non_field_errors|join:', ' }}</span>
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="form-control">
+                <label class="label" for="id_date"><span class="label-text">Date</span></label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
+                <label class="label" for="id_record_type"><span class="label-text">Record Type *</span></label>
+                {{ form.record_type }}
+                {% if form.record_type.errors %}<p class="text-error text-sm mt-1">{{ form.record_type.errors|join:', ' }}</p>{% endif %}
+                <p class="text-xs text-base-content/60 mt-1">Choose the type of record: Investment, Stock, or Sale.</p>
+            </div>
+        </div>
+
+        <div class="cf-filter-panel p-4 space-y-3">
+            <h2 class="font-semibold">Investment</h2>
+            <p class="text-sm text-base-content/70">For investment records, enter the amount spent on bamboo procurement or processing.</p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="form-control">
+                    <label class="label" for="id_investment"><span class="label-text">Investment Amount (NPR)</span></label>
+                    {{ form.investment }}
+                    {% if form.investment.errors %}<p class="text-error text-sm mt-1">{{ form.investment.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Required for Investment records.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-filter-panel p-4 space-y-3">
+            <h2 class="font-semibold">Stock & Sales Details</h2>
+            <p class="text-sm text-base-content/70">For stock additions or sales, specify quantity. For sales, also enter price per unit.</p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="form-control">
+                    <label class="label" for="id_quantity"><span class="label-text">Quantity (Units)</span></label>
+                    {{ form.quantity }}
+                    {% if form.quantity.errors %}<p class="text-error text-sm mt-1">{{ form.quantity.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Number of units added or sold.</p>
+                </div>
+                <div class="form-control">
+                    <label class="label" for="id_price_per_unit"><span class="label-text">Price Per Unit (NPR)</span></label>
+                    {{ form.price_per_unit }}
+                    {% if form.price_per_unit.errors %}<p class="text-error text-sm mt-1">{{ form.price_per_unit.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Required for Sale records. Multiplied by quantity to calculate total income.</p>
+                </div>
+                <div class="form-control md:col-span-2">
+                    <label class="label" for="id_sale_income"><span class="label-text">Sale Income (auto-calculated)</span></label>
+                    {{ form.sale_income }}
+                    {% if form.sale_income.errors %}<p class="text-error text-sm mt-1">{{ form.sale_income.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">{{ form.sale_income.help_text }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-control">
+            <label class="label" for="id_notes"><span class="label-text">Notes</span></label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<p class="text-error text-sm mt-1">{{ form.notes.errors|join:', ' }}</p>{% endif %}
+            <p class="text-xs text-base-content/60 mt-1">Additional details or remarks about this record.</p>
+        </div>
+
+        <div class="flex gap-2 pt-4">
+            <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            <a href="{% url 'bamboo_records' %}" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.getElementById('id_quantity').addEventListener('input', calculateIncome);
+    document.getElementById('id_price_per_unit').addEventListener('input', calculateIncome);
+
+    function calculateIncome() {
+        const quantity = parseFloat(document.getElementById('id_quantity').value) || 0;
+        const price = parseFloat(document.getElementById('id_price_per_unit').value) || 0;
+        const total = quantity * price;
+        document.getElementById('id_sale_income').value = total.toFixed(2);
+    }
+</script>
+{% endblock %}

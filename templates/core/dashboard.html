@@ -75,7 +75,9 @@
         topCustomers: null,
         jcbSummary: null,
         tipperSummary: null,
-        blocksSummary: null
+        blocksSummary: null,
+        cementSummary: null,
+        bambooSummary: null
     };
     let chartResizeObservers = [];
     let dashboardViewportMode = null;
@@ -401,6 +403,8 @@
         const blocksSummaryValues = cleanSeries(readJsonScript('blocks-summary-values'));
         const cementSummaryLabels = readJsonScript('cement-summary-labels');
         const cementSummaryValues = cleanSeries(readJsonScript('cement-summary-values'));
+        const bambooSummaryLabels = readJsonScript('bamboo-summary-labels');
+        const bambooSummaryValues = cleanSeries(readJsonScript('bamboo-summary-values'));
 
         const trendCanvas = document.getElementById('sales-trend-chart');
         const pieCanvas = document.getElementById('income-expense-chart');
@@ -411,6 +415,7 @@
         const tipperSummaryCanvas = document.getElementById('tipper-summary-chart');
         const blocksSummaryCanvas = document.getElementById('blocks-summary-chart');
         const cementSummaryCanvas = document.getElementById('cement-summary-chart');
+        const bambooSummaryCanvas = document.getElementById('bamboo-summary-chart');
         const compactViewport = isCompactViewport();
 
         destroyDashboardCharts();
@@ -849,6 +854,53 @@
                 }]
             });
             registerChart('cementSummary', cementChart, cementSummaryCanvas);
+        }
+
+        if (bambooSummaryCanvas && bambooSummaryLabels && bambooSummaryValues) {
+            const bambooChart = echarts.init(bambooSummaryCanvas, null, { renderer: 'canvas' });
+            bambooChart.setOption({
+                animationDuration: 860,
+                color: [chartPalette.coral, chartPalette.mint],
+                grid: { left: 18, right: 18, top: 34, bottom: 24, containLabel: true },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    borderWidth: 0,
+                    textStyle: { color: '#F8FAFC' },
+                    formatter(params) {
+                        const item = params[0];
+                        return `${item.axisValue}<br/>Total: ${formatNpr(item.value)}`;
+                    }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: bambooSummaryLabels,
+                    axisLine: { lineStyle: { color: '#D4DFEA' } },
+                    axisLabel: { color: '#516178' }
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: 'rgba(80, 110, 150, 0.12)' } },
+                    axisLabel: { color: '#516178', formatter: (value) => formatNprAxis(value) }
+                },
+                series: [{
+                    type: 'bar',
+                    barMaxWidth: 42,
+                    itemStyle: { borderRadius: [10, 10, 0, 0] },
+                    data: bambooSummaryValues.map((value, index) => ({
+                        value,
+                        itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
+                    })),
+                    label: {
+                        show: true,
+                        position: 'top',
+                        color: '#31445F',
+                        formatter: ({ value }) => formatCompactAxisValue(value)
+                    }
+                }]
+            });
+            registerChart('bambooSummary', bambooChart, bambooSummaryCanvas);
         }
 
         // Category Expense Pie Chart

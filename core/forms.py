@@ -8,6 +8,8 @@ from .models import AlertNotification, AlertSource, AlertType, Customer, JCBReco
 from .models import TransactionCategory
 from .models import (
     RecordStatus,
+    BambooRecord,
+    BambooRecordType,
     BlocksRecord,
     BlocksRecordType,
     BlocksUnitType,
@@ -646,6 +648,65 @@ class CementRecordForm(forms.ModelForm):
         self.fields["investment"].required = False
         self.fields["quantity"].required = False
         self.fields["unit_type"].required = False
+        self.fields["price_per_unit"].required = False
+        self.fields["record_type"].label = "Record Type"
+
+        for field_name, field in self.fields.items():
+            _decorate_widget(field_name, field)
+
+
+class BambooRecordForm(forms.ModelForm):
+    """Form for creating and editing Bamboo Records."""
+
+    class Meta:
+        model = BambooRecord
+        fields = [
+            "date",
+            "record_type",
+            "investment",
+            "quantity",
+            "price_per_unit",
+            "sale_income",
+            "notes",
+        ]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "placeholder": "Additional details or remarks"}),
+            "investment": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "quantity": forms.NumberInput(attrs={"min": "0"}),
+            "price_per_unit": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "sale_income": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        record_type = cleaned_data.get("record_type")
+        investment = cleaned_data.get("investment")
+        quantity = cleaned_data.get("quantity")
+        price_per_unit = cleaned_data.get("price_per_unit")
+
+        if record_type == BambooRecordType.INVESTMENT:
+            if investment is None or investment <= 0:
+                self.add_error("investment", "Investment amount is required for investment records.")
+        elif record_type == BambooRecordType.STOCK:
+            if quantity is None or quantity <= 0:
+                self.add_error("quantity", "Quantity must be greater than 0 for stock records.")
+        elif record_type == BambooRecordType.SALE:
+            if quantity is None or quantity <= 0:
+                self.add_error("quantity", "Quantity must be greater than 0 for sale records.")
+            if price_per_unit is None or price_per_unit < 0:
+                self.add_error("price_per_unit", "Price per unit is required and must be greater than or equal to 0.")
+
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["sale_income"].required = False
+        self.fields["sale_income"].disabled = True
+        self.fields["sale_income"].label = "Sale Income"
+        self.fields["sale_income"].help_text = "Auto-calculated from quantity × price"
+        self.fields["investment"].required = False
+        self.fields["quantity"].required = False
         self.fields["price_per_unit"].required = False
         self.fields["record_type"].label = "Record Type"
 
