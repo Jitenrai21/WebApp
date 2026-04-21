@@ -326,16 +326,6 @@ def _dashboard_context(date_from="", date_to=""):
 	)
 	sales_rows = list(sales_queryset)
 	received_total = sum((sale.received_total for sale in sales_rows), Decimal("0.00"))
-	outstanding_receivables = sum(
-		((sale.total_amount - sale.received_total) for sale in sales_rows),
-		Decimal("0.00"),
-	)
-	# Include manual due amounts from all customers
-	manual_due_total = sum(
-		(customer.manual_due_amount for customer in Customer.objects.filter(manual_due_amount__gt=0)),
-		Decimal("0.00"),
-	)
-	outstanding_receivables += manual_due_total
 	kpi_income_expense = transactions_queryset.aggregate(
 		total_income=Coalesce(
 			Sum("amount", filter=Q(type=TransactionType.INCOME)),
@@ -346,6 +336,18 @@ def _dashboard_context(date_from="", date_to=""):
 			Value(Decimal("0.00")),
 		),
 	)
+
+	all_time_sales_queryset = _dashboard_base_sales_queryset()
+	all_time_sales_rows = list(all_time_sales_queryset)
+	outstanding_receivables = sum(
+		((sale.total_amount - sale.received_total) for sale in all_time_sales_rows),
+		Decimal("0.00"),
+	)
+	manual_due_total = sum(
+		(customer.manual_due_amount for customer in Customer.objects.filter(manual_due_amount__gt=0)),
+		Decimal("0.00"),
+	)
+	outstanding_receivables += manual_due_total
 
 	jcb_summary_raw = jcb_queryset.aggregate(
 		total_work_hours_sum=Coalesce(Sum("total_work_hours"), Value(Decimal("0.00"))),
@@ -391,7 +393,7 @@ def _dashboard_context(date_from="", date_to=""):
 	today = timezone.localdate()
 	overdue_sales = [
 		sale
-		for sale in sales_rows
+		for sale in all_time_sales_rows
 		if (
 			sale.status == RecordStatus.PENDING
 			and sale.alert_enabled

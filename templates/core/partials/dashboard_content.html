@@ -26,14 +26,14 @@
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Outstanding Receivables</p>
                 <p class="kpi-value !mt-0 text-xl leading-tight js-npr-value" data-npr-value="{{ kpis.outstanding_receivables }}">NPR {{ kpis.outstanding_receivables|npr_amount }}</p>
-                <p class="kpi-note">Pending amount from unpaid sales</p>
+                <p class="kpi-note">Pending amount from unpaid sales (all-time)</p>
             </div>
         </div>
         <div class="cf-kpi-card cf-kpi-card--overdue">
             <div class="min-w-0 h-full flex flex-col gap-1">
                 <p class="kpi-label !mt-0">Overdue Invoices</p>
                 <p class="kpi-value !mt-0 text-xl leading-tight">{{ kpis.overdue_count }}</p>
-                <p class="kpi-note js-npr-value" data-npr-value="{{ kpis.overdue_amount }}">NPR {{ kpis.overdue_amount|npr_amount }}</p>
+                <p class="kpi-note js-npr-value" data-npr-value="{{ kpis.overdue_amount }}">Overdue amount (all-time): NPR {{ kpis.overdue_amount|npr_amount }}</p>
             </div>
         </div>
     </div>
