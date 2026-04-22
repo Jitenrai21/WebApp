@@ -10,6 +10,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Record Type</th>
+                    <th>Customer</th>
                     <th>Payment Status</th>
                     <th>Unit Type</th>
                     <th>Quantity</th>
@@ -39,6 +40,13 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true"><path d="M4 4.5A2.5 2.5 0 016.5 2h7A2.5 2.5 0 0116 4.5v8a2.5 2.5 0 01-2.5 2.5h-7A2.5 2.5 0 014 12.5v-8zM6.5 4a.5.5 0 00-.5.5v8a.5.5 0 00.5.5h7a.5.5 0 00.5-.5v-8a.5.5 0 00-.5-.5h-7z" /><path d="M5.5 13.5a1 1 0 00-.93 1.366l1.5 3.75A1 1 0 007 19h6a1 1 0 00.93-.634l1.5-3.75a1 1 0 00-.93-1.366h-9z" /></svg>
                                 Stock
                             </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.customer %}
+                            <a href="{% url 'customer_detail' record.customer.id %}" class="link link-primary">{{ record.customer.name }}</a>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
                     <td>
@@ -131,7 +139,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="text-center py-8">
+                    <td colspan="10" class="text-center py-8">
                         <div class="space-y-2">
                             <p class="text-base-content/70">No blocks records found.</p>
                             <a href="{% url 'blocks_record_create' %}" class="btn btn-sm btn-primary">Create First Record</a>

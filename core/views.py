@@ -2479,7 +2479,7 @@ def manual_alert_delete(request, pk):
 def blocks_records(request):
 	"""Display list of blocks records with filtering and pagination."""
 	default_from, default_to = _get_default_date_range()
-	queryset = BlocksRecord.objects.all()
+	queryset = BlocksRecord.objects.select_related("customer")
 
 	query = request.GET.get("q", "").strip()
 	record_type = request.GET.get("record_type", "").strip()
@@ -2491,7 +2491,9 @@ def blocks_records(request):
 
 	if query:
 		queryset = queryset.filter(
-			Q(notes__icontains=query) | Q(record_type__icontains=query)
+			Q(notes__icontains=query)
+			| Q(record_type__icontains=query)
+			| Q(customer__name__icontains=query)
 		)
 	if record_type:
 		queryset = queryset.filter(record_type=record_type)
@@ -2649,6 +2651,7 @@ def _create_blocks_sale_transaction(blocks_record):
 			type=TransactionType.INCOME,
 			category=_get_or_create_predefined_category(BLOCKS_SALE_INCOME_CATEGORY),
 			description=f"Income from {blocks_record.unit_type} blocks sale ({blocks_record.quantity} units @ {blocks_record.price_per_unit})",
+			customer=blocks_record.customer,
 			blocks_record=blocks_record,
 		)
 
@@ -2660,7 +2663,7 @@ def _create_blocks_sale_transaction(blocks_record):
 def cement_records(request):
 	"""Display list of cement records with filtering and pagination."""
 	default_from, default_to = _get_default_date_range()
-	queryset = CementRecord.objects.all()
+	queryset = CementRecord.objects.select_related("customer")
 
 	query = request.GET.get("q", "").strip()
 	record_type = request.GET.get("record_type", "").strip()
@@ -2671,7 +2674,11 @@ def cement_records(request):
 	sort = request.GET.get("sort", "-date")
 
 	if query:
-		queryset = queryset.filter(Q(notes__icontains=query) | Q(record_type__icontains=query))
+		queryset = queryset.filter(
+			Q(notes__icontains=query)
+			| Q(record_type__icontains=query)
+			| Q(customer__name__icontains=query)
+		)
 	if record_type:
 		queryset = queryset.filter(record_type=record_type)
 	if payment_status:
@@ -2821,6 +2828,7 @@ def _create_cement_sale_transaction(cement_record):
 			type=TransactionType.INCOME,
 			category=_get_or_create_predefined_category(CEMENT_SALE_INCOME_CATEGORY),
 			description=f"Income from {cement_record.unit_type} cement sale ({cement_record.quantity} units @ {cement_record.price_per_unit})",
+			customer=cement_record.customer,
 			cement_record=cement_record,
 		)
 
@@ -2832,7 +2840,7 @@ def _create_cement_sale_transaction(cement_record):
 def bamboo_records(request):
 	"""Display list of bamboo records with filtering and pagination."""
 	default_from, default_to = _get_default_date_range()
-	queryset = BambooRecord.objects.all()
+	queryset = BambooRecord.objects.select_related("customer")
 
 	query = request.GET.get("q", "").strip()
 	record_type = request.GET.get("record_type", "").strip()
@@ -2842,7 +2850,11 @@ def bamboo_records(request):
 	sort = request.GET.get("sort", "-date")
 
 	if query:
-		queryset = queryset.filter(Q(notes__icontains=query) | Q(record_type__icontains=query))
+		queryset = queryset.filter(
+			Q(notes__icontains=query)
+			| Q(record_type__icontains=query)
+			| Q(customer__name__icontains=query)
+		)
 	if record_type:
 		queryset = queryset.filter(record_type=record_type)
 	if payment_status:
@@ -2988,5 +3000,6 @@ def _create_bamboo_sale_transaction(bamboo_record):
 			type=TransactionType.INCOME,
 			category=_get_or_create_predefined_category(BAMBOO_SALE_INCOME_CATEGORY),
 			description=f"Income from bamboo sale ({bamboo_record.quantity} units @ {bamboo_record.price_per_unit})",
+			customer=bamboo_record.customer,
 			bamboo_record=bamboo_record,
 		)

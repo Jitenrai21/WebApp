@@ -440,6 +440,14 @@ class BlocksRecord(TimeStampedModel):
         null=True,
         help_text="Payment status for sale records only",
     )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        related_name="blocks_records",
+        blank=True,
+        null=True,
+        help_text="Assigned customer for sale records",
+    )
     
     # Investment fields (for INVESTMENT and SALE record types)
     investment = models.DecimalField(
@@ -556,6 +564,14 @@ class CementRecord(TimeStampedModel):
         null=True,
         help_text="Payment status for sale records only",
     )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        related_name="cement_records",
+        blank=True,
+        null=True,
+        help_text="Assigned customer for sale records",
+    )
 
     investment = models.DecimalField(
         max_digits=14,
@@ -660,6 +676,14 @@ class BambooRecord(TimeStampedModel):
         blank=True,
         null=True,
         help_text="Payment status for sale records only",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        related_name="bamboo_records",
+        blank=True,
+        null=True,
+        help_text="Assigned customer for sale records",
     )
 
     investment = models.DecimalField(

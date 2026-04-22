@@ -520,12 +520,14 @@ class ManualAlertForm(forms.ModelForm):
 
 class BlocksRecordForm(forms.ModelForm):
     """Form for creating and editing Blocks Records."""
+    customer_input = forms.CharField(required=False)
     
     class Meta:
         model = BlocksRecord
         fields = [
             "date",
             "record_type",
+            "customer",
             "payment_status",
             "investment",
             "unit_type",
@@ -547,6 +549,7 @@ class BlocksRecordForm(forms.ModelForm):
         cleaned_data = super().clean()
         record_type = cleaned_data.get("record_type")
         payment_status = cleaned_data.get("payment_status")
+        customer_name = (cleaned_data.get("customer_input") or "").strip()
         investment = cleaned_data.get("investment")
         quantity = cleaned_data.get("quantity")
         unit_type = cleaned_data.get("unit_type")
@@ -554,8 +557,16 @@ class BlocksRecordForm(forms.ModelForm):
 
         if record_type == BlocksRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
+            if customer_name:
+                customer = Customer.objects.filter(name__iexact=customer_name).order_by("name").first()
+                if customer is None:
+                    customer = Customer.objects.create(name=customer_name)
+                cleaned_data["customer"] = customer
+            else:
+                cleaned_data["customer"] = None
         else:
             cleaned_data["payment_status"] = None
+            cleaned_data["customer"] = None
         
         if record_type == BlocksRecordType.INVESTMENT:
             # For INVESTMENT records, investment must be provided
@@ -589,8 +600,16 @@ class BlocksRecordForm(forms.ModelForm):
         self.fields["payment_status"].required = False
         self.fields["payment_status"].label = "Payment Status"
         self.fields["payment_status"].help_text = "Sale records only"
+        self.fields["customer"].required = False
+        self.fields["customer"].queryset = Customer.objects.order_by("name")
+        self.fields["customer"].help_text = "Optional. You can assign a customer for sale records."
+        self.fields["customer_input"].widget.attrs["placeholder"] = "Type or choose a customer name"
+        self.fields["customer_input"].widget.attrs["autocomplete"] = "off"
+        self.fields["customer_input"].widget.attrs["list"] = "blocks-customer-options"
         if not self.is_bound and not self.instance.pk:
             self.fields["payment_status"].initial = RecordStatus.PENDING
+        if self.instance and self.instance.pk and self.instance.customer:
+            self.initial["customer_input"] = self.instance.customer.name
         self.fields["investment"].required = False
         self.fields["quantity"].required = False
         self.fields["unit_type"].required = False
@@ -603,12 +622,14 @@ class BlocksRecordForm(forms.ModelForm):
 
 class CementRecordForm(forms.ModelForm):
     """Form for creating and editing Cement Records."""
+    customer_input = forms.CharField(required=False)
 
     class Meta:
         model = CementRecord
         fields = [
             "date",
             "record_type",
+            "customer",
             "payment_status",
             "investment",
             "unit_type",
@@ -630,6 +651,7 @@ class CementRecordForm(forms.ModelForm):
         cleaned_data = super().clean()
         record_type = cleaned_data.get("record_type")
         payment_status = cleaned_data.get("payment_status")
+        customer_name = (cleaned_data.get("customer_input") or "").strip()
         investment = cleaned_data.get("investment")
         quantity = cleaned_data.get("quantity")
         unit_type = cleaned_data.get("unit_type")
@@ -637,8 +659,16 @@ class CementRecordForm(forms.ModelForm):
 
         if record_type == CementRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
+            if customer_name:
+                customer = Customer.objects.filter(name__iexact=customer_name).order_by("name").first()
+                if customer is None:
+                    customer = Customer.objects.create(name=customer_name)
+                cleaned_data["customer"] = customer
+            else:
+                cleaned_data["customer"] = None
         else:
             cleaned_data["payment_status"] = None
+            cleaned_data["customer"] = None
 
         if record_type == CementRecordType.INVESTMENT:
             if investment is None or investment <= 0:
@@ -667,8 +697,16 @@ class CementRecordForm(forms.ModelForm):
         self.fields["payment_status"].required = False
         self.fields["payment_status"].label = "Payment Status"
         self.fields["payment_status"].help_text = "Sale records only"
+        self.fields["customer"].required = False
+        self.fields["customer"].queryset = Customer.objects.order_by("name")
+        self.fields["customer"].help_text = "Optional. You can assign a customer for sale records."
+        self.fields["customer_input"].widget.attrs["placeholder"] = "Type or choose a customer name"
+        self.fields["customer_input"].widget.attrs["autocomplete"] = "off"
+        self.fields["customer_input"].widget.attrs["list"] = "cement-customer-options"
         if not self.is_bound and not self.instance.pk:
             self.fields["payment_status"].initial = RecordStatus.PENDING
+        if self.instance and self.instance.pk and self.instance.customer:
+            self.initial["customer_input"] = self.instance.customer.name
         self.fields["investment"].required = False
         self.fields["quantity"].required = False
         self.fields["unit_type"].required = False
@@ -681,12 +719,14 @@ class CementRecordForm(forms.ModelForm):
 
 class BambooRecordForm(forms.ModelForm):
     """Form for creating and editing Bamboo Records."""
+    customer_input = forms.CharField(required=False)
 
     class Meta:
         model = BambooRecord
         fields = [
             "date",
             "record_type",
+            "customer",
             "payment_status",
             "investment",
             "quantity",
@@ -707,14 +747,23 @@ class BambooRecordForm(forms.ModelForm):
         cleaned_data = super().clean()
         record_type = cleaned_data.get("record_type")
         payment_status = cleaned_data.get("payment_status")
+        customer_name = (cleaned_data.get("customer_input") or "").strip()
         investment = cleaned_data.get("investment")
         quantity = cleaned_data.get("quantity")
         price_per_unit = cleaned_data.get("price_per_unit")
 
         if record_type == BambooRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
+            if customer_name:
+                customer = Customer.objects.filter(name__iexact=customer_name).order_by("name").first()
+                if customer is None:
+                    customer = Customer.objects.create(name=customer_name)
+                cleaned_data["customer"] = customer
+            else:
+                cleaned_data["customer"] = None
         else:
             cleaned_data["payment_status"] = None
+            cleaned_data["customer"] = None
 
         if record_type == BambooRecordType.INVESTMENT:
             if investment is None or investment <= 0:
@@ -739,8 +788,16 @@ class BambooRecordForm(forms.ModelForm):
         self.fields["payment_status"].required = False
         self.fields["payment_status"].label = "Payment Status"
         self.fields["payment_status"].help_text = "Sale records only"
+        self.fields["customer"].required = False
+        self.fields["customer"].queryset = Customer.objects.order_by("name")
+        self.fields["customer"].help_text = "Optional. You can assign a customer for sale records."
+        self.fields["customer_input"].widget.attrs["placeholder"] = "Type or choose a customer name"
+        self.fields["customer_input"].widget.attrs["autocomplete"] = "off"
+        self.fields["customer_input"].widget.attrs["list"] = "bamboo-customer-options"
         if not self.is_bound and not self.instance.pk:
             self.fields["payment_status"].initial = RecordStatus.PENDING
+        if self.instance and self.instance.pk and self.instance.customer:
+            self.initial["customer_input"] = self.instance.customer.name
         self.fields["investment"].required = False
         self.fields["quantity"].required = False
         self.fields["price_per_unit"].required = False

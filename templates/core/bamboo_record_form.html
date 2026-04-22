@@ -78,6 +78,17 @@
                     {% if form.payment_status.errors %}<p class="text-error text-sm mt-1">{{ form.payment_status.errors|join:', ' }}</p>{% endif %}
                     <p class="text-xs text-base-content/60 mt-1">Shown for sale records only.</p>
                 </div>
+                <div id="customer-field" class="form-control md:col-span-2 hidden">
+                    <label class="label" for="id_customer_input"><span class="label-text">Customer Assignment (Optional)</span></label>
+                    {{ form.customer_input }}
+                    <datalist id="bamboo-customer-options">
+                        {% for customer in form.fields.customer.queryset %}
+                        <option value="{{ customer.name }}"></option>
+                        {% endfor %}
+                    </datalist>
+                    {% if form.customer_input.errors %}<p class="text-error text-sm mt-1">{{ form.customer_input.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Start typing to see matches, or enter a custom customer name.</p>
+                </div>
             </div>
         </div>
 
@@ -99,18 +110,22 @@
     const recordTypeInput = document.getElementById('id_record_type');
     const paymentStatusField = document.getElementById('payment-status-field');
     const paymentStatusInput = document.getElementById('id_payment_status');
+    const customerField = document.getElementById('customer-field');
+    const customerInput = document.getElementById('id_customer_input');
 
     function togglePaymentStatusField() {
-        if (!recordTypeInput || !paymentStatusField || !paymentStatusInput) {
+        if (!recordTypeInput || !paymentStatusField || !paymentStatusInput || !customerField || !customerInput) {
             return;
         }
         const isSale = recordTypeInput.value === 'sale';
         paymentStatusField.classList.toggle('hidden', !isSale);
+        customerField.classList.toggle('hidden', !isSale);
         if (isSale && !paymentStatusInput.value) {
             paymentStatusInput.value = 'pending';
         }
         if (!isSale) {
             paymentStatusInput.value = '';
+            customerInput.value = '';
         }
     }
 
