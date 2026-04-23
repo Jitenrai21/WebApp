@@ -13,9 +13,8 @@
                     <th>Type</th>
                     <th>Payment Method</th>
                     <th>Category</th>
-                    <th>Description</th>
                     <th>Amount</th>
-                    <th>Attachment</th>
+                    <th>Description / Notes</th>
                     <th class="text-right whitespace-nowrap">Actions</th>
                 </tr>
             </thead>
@@ -36,19 +35,12 @@
                     </td>
                     <td>{{ transaction.get_payment_method_display }}</td>
                     <td>{{ transaction.category }}</td>
+                    <td>NPR {{ transaction.amount|npr_amount }}</td>
                     <td>
                         {% if transaction.description %}
                         {{ transaction.description }}
                         {% else %}
                         <span class="text-base-content/50">-</span>
-                        {% endif %}
-                    </td>
-                    <td>NPR {{ transaction.amount|npr_amount }}</td>
-                    <td>
-                        {% if transaction.attachment %}
-                        <a href="{{ transaction.attachment.url }}" target="_blank" rel="noopener noreferrer" class="link link-primary">View</a>
-                        {% else %}
-                        <span class="text-base-content/50">None</span>
                         {% endif %}
                     </td>
                     <td class="text-right align-middle">
@@ -97,7 +89,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="py-0">
+                    <td colspan="8" class="py-0">
                         <div class="cf-empty">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1zm1 3a1 1 0 100 2h12a1 1 0 100-2H4z" /></svg>
                             <p>No transactions found for the selected filters.</p>
@@ -117,8 +109,8 @@
         <div class="join">
             {% if page_obj.has_previous %}
             <a
-                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&customer={{ filters.customer }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
-                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&customer={{ filters.customer }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
                 hx-target="#transaction-table-container"
                 hx-push-url="true"
                 class="btn btn-sm join-item"
@@ -128,8 +120,8 @@
             {% endif %}
             {% if page_obj.has_next %}
             <a
-                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&customer={{ filters.customer }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
-                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&customer={{ filters.customer }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
                 hx-target="#transaction-table-container"
                 hx-push-url="true"
                 class="btn btn-sm join-item"

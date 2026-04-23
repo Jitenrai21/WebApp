@@ -49,11 +49,11 @@
             </select>
         </label>
         <label class="form-control">
-            <span class="label-text mb-1">Customer</span>
-            <select name="customer" class="select select-bordered w-full">
+            <span class="label-text mb-1">Method</span>
+            <select name="payment_method" class="select select-bordered w-full">
                 <option value="">All</option>
-                {% for customer in customers %}
-                <option value="{{ customer.id }}" {% if filters.customer == customer.id|stringformat:'s' %}selected{% endif %}>{{ customer.name }}</option>
+                {% for value, label in payment_method_choices %}
+                <option value="{{ value }}" {% if filters.payment_method == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </label>

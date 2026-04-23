@@ -1199,7 +1199,7 @@ def cash_entries(request):
 	date_from = request.GET.get("date_from", "").strip() or default_from
 	date_to = request.GET.get("date_to", "").strip() or default_to
 	transaction_type = request.GET.get("type", "").strip()
-	customer_id = request.GET.get("customer", "").strip()
+	payment_method = request.GET.get("payment_method", "").strip()
 	category_id = request.GET.get("category", "").strip()
 	sort = request.GET.get("sort", "-date")
 
@@ -1215,8 +1215,8 @@ def cash_entries(request):
 		transactions = transactions.filter(date__lte=date_to)
 	if transaction_type:
 		transactions = transactions.filter(type=transaction_type)
-	if customer_id:
-		transactions = transactions.filter(customer_id=customer_id)
+	if payment_method:
+		transactions = transactions.filter(payment_method=payment_method)
 	if category_id:
 		transactions = transactions.filter(category_id=category_id)
 
@@ -1236,14 +1236,14 @@ def cash_entries(request):
 	context = {
 		"transactions": page_obj.object_list,
 		"page_obj": page_obj,
-		"customers": Customer.objects.all(),
+		"payment_method_choices": PaymentMethod.choices,
 		"categories": TransactionCategory.objects.all().order_by("name"),
 		"filters": {
 			"q": query,
 			"date_from": date_from,
 			"date_to": date_to,
 			"type": transaction_type,
-			"customer": customer_id,
+			"payment_method": payment_method,
 			"category": category_id,
 			"sort": sort,
 		},
