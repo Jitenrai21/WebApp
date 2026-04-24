@@ -411,7 +411,7 @@ def _alerts_context(alert_type="", customer_id="", date_from="", date_to=""):
 	}
 
 
-def _dashboard_context(date_from="", date_to=""):
+def _dashboard_context(request=None, date_from="", date_to=""):
 	sales_queryset = _dashboard_base_sales_queryset(date_from, date_to)
 	sales_amount_queryset = _dashboard_sales_amount_queryset(date_from, date_to)
 	transactions_queryset = Transaction.objects.select_related("customer").exclude(
@@ -545,7 +545,8 @@ def _dashboard_context(date_from="", date_to=""):
 		.annotate(total=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))))
 		.order_by("date")
 	)
-	sales_trend_labels = [row["date"].isoformat() for row in trend_rows]
+	calendar_mode = get_calendar_mode(request)
+	sales_trend_labels = [date_to_calendar_input(row["date"], calendar_mode) for row in trend_rows]
 	sales_trend_values = [float(row["total"]) for row in trend_rows]
 
 	income_vs_expense_values = [
@@ -1539,7 +1540,7 @@ def dashboard(request):
 	)
 	date_from = date_filters["date_from"]
 	date_to = date_filters["date_to"]
-	context = _dashboard_context(date_from=date_from, date_to=date_to)
+	context = _dashboard_context(request=request, date_from=date_from, date_to=date_to)
 	# Pass filters for template default values
 	context["filters"] = {
 		"date_from": date_filters["date_from_display"],

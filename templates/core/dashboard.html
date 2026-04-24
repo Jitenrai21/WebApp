@@ -12,23 +12,23 @@
             </div>
             <form
                 id="dashboard-filter-form"
-                class="grid grid-cols-1 gap-2 sm:grid-cols-3"
+                class="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-[9rem_9rem_auto] lg:items-end"
                 hx-get="{% url 'dashboard' %}"
                 hx-target="#dashboard-content"
                 hx-trigger="change delay:300ms, submit"
                 hx-indicator="#dashboard-loading"
                 hx-push-url="true"
             >
-                <label class="form-control">
+                <label class="form-control min-w-0 lg:w-36">
                     <span class="label-text text-xs">From</span>
-                    <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_from" value="{{ filters.date_from|default:'' }}" class="input input-bordered input-sm" aria-label="Filter from date" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
+                    <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_from" value="{{ filters.date_from|default:'' }}" class="input input-bordered input-sm w-full min-w-0 lg:w-36" aria-label="Filter from date" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
                 </label>
-                <label class="form-control">
+                <label class="form-control min-w-0 lg:w-36">
                     <span class="label-text text-xs">To</span>
-                    <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_to" value="{{ filters.date_to|default:'' }}" class="input input-bordered input-sm" aria-label="Filter to date" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
+                    <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_to" value="{{ filters.date_to|default:'' }}" class="input input-bordered input-sm w-full min-w-0 lg:w-36" aria-label="Filter to date" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
                 </label>
-                <div class="flex items-end">
-                    <div class="grid w-full grid-cols-2 gap-2">
+                <div class="flex items-end min-w-0">
+                    <div class="grid w-full grid-cols-2 gap-2 lg:w-auto lg:flex-none">
                         <button type="submit" class="btn btn-primary btn-sm">Apply</button>
                         <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">Reset</a>
                     </div>
@@ -819,10 +819,10 @@
             tipperChart.setOption(buildSharedBarChartOption({
                 labels: tipperSummaryLabels,
                 colors: [chartPalette.coral, chartPalette.mint],
-                animationDuration: 860,
+                animationDuration: 820,
                 // Exception: single-series summary chart hides legend to avoid redundant UI noise.
                 legend: { show: false },
-                grid: { left: 18, right: 18, top: 34, bottom: 24, containLabel: true },
+                grid: { left: 18, right: 18, top: 42, bottom: 22, containLabel: true },
                 tooltip: {
                     formatter(params) {
                         const item = params[0];
@@ -830,8 +830,6 @@
                     }
                 },
                 series: [{
-                    barMaxWidth: 42,
-                    itemStyle: { borderRadius: [10, 10, 0, 0] },
                     data: tipperSummaryValues.map((value, index) => ({
                         value,
                         itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
@@ -852,10 +850,10 @@
             blocksChart.setOption(buildSharedBarChartOption({
                 labels: blocksSummaryLabels,
                 colors: [chartPalette.coral, chartPalette.mint],
-                animationDuration: 860,
+                animationDuration: 820,
                 // Exception: single-series summary chart hides legend to avoid redundant UI noise.
                 legend: { show: false },
-                grid: { left: 18, right: 18, top: 34, bottom: 24, containLabel: true },
+                grid: { left: 18, right: 18, top: 42, bottom: 22, containLabel: true },
                 tooltip: {
                     formatter(params) {
                         const item = params[0];
@@ -863,8 +861,6 @@
                     }
                 },
                 series: [{
-                    barMaxWidth: 42,
-                    itemStyle: { borderRadius: [10, 10, 0, 0] },
                     data: blocksSummaryValues.map((value, index) => ({
                         value,
                         itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
@@ -885,10 +881,10 @@
             cementChart.setOption(buildSharedBarChartOption({
                 labels: cementSummaryLabels,
                 colors: [chartPalette.coral, chartPalette.mint],
-                animationDuration: 860,
+                animationDuration: 820,
                 // Exception: single-series summary chart hides legend to avoid redundant UI noise.
                 legend: { show: false },
-                grid: { left: 18, right: 18, top: 34, bottom: 24, containLabel: true },
+                grid: { left: 18, right: 18, top: 42, bottom: 22, containLabel: true },
                 tooltip: {
                     formatter(params) {
                         const item = params[0];
@@ -896,8 +892,6 @@
                     }
                 },
                 series: [{
-                    barMaxWidth: 42,
-                    itemStyle: { borderRadius: [10, 10, 0, 0] },
                     data: cementSummaryValues.map((value, index) => ({
                         value,
                         itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
@@ -918,10 +912,10 @@
             bambooChart.setOption(buildSharedBarChartOption({
                 labels: bambooSummaryLabels,
                 colors: [chartPalette.coral, chartPalette.mint],
-                animationDuration: 860,
+                animationDuration: 820,
                 // Exception: single-series summary chart hides legend to avoid redundant UI noise.
                 legend: { show: false },
-                grid: { left: 18, right: 18, top: 34, bottom: 24, containLabel: true },
+                grid: { left: 18, right: 18, top: 42, bottom: 22, containLabel: true },
                 tooltip: {
                     formatter(params) {
                         const item = params[0];
@@ -929,8 +923,6 @@
                     }
                 },
                 series: [{
-                    barMaxWidth: 42,
-                    itemStyle: { borderRadius: [10, 10, 0, 0] },
                     data: bambooSummaryValues.map((value, index) => ({
                         value,
                         itemStyle: { color: index === 0 ? chartPalette.coral : chartPalette.mint }
