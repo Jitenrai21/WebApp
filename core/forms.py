@@ -608,6 +608,7 @@ class BlocksRecordForm(forms.ModelForm):
             "quantity",
             "price_per_unit",
             "sale_income",
+            "paid_amount",
             "notes",
         ]
         widgets = {
@@ -617,6 +618,7 @@ class BlocksRecordForm(forms.ModelForm):
             "quantity": forms.NumberInput(attrs={"min": "0"}),
             "price_per_unit": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "sale_income": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "paid_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def clean(self):
@@ -628,6 +630,7 @@ class BlocksRecordForm(forms.ModelForm):
         quantity = cleaned_data.get("quantity")
         unit_type = cleaned_data.get("unit_type")
         price_per_unit = cleaned_data.get("price_per_unit")
+        paid_amount = cleaned_data.get("paid_amount")
 
         if record_type == BlocksRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
@@ -638,6 +641,7 @@ class BlocksRecordForm(forms.ModelForm):
                 cleaned_data["customer"] = customer
             else:
                 cleaned_data["customer"] = None
+                self.add_error("customer_input", "Customer is required for sale records.")
         else:
             cleaned_data["payment_status"] = None
             cleaned_data["customer"] = None
@@ -662,6 +666,19 @@ class BlocksRecordForm(forms.ModelForm):
                 self.add_error("quantity", "Quantity must be greater than 0 for sale records.")
             if price_per_unit is None or price_per_unit < 0:
                 self.add_error("price_per_unit", "Price per unit is required and must be greater than or equal to 0.")
+
+            if quantity not in (None, "") and price_per_unit not in (None, ""):
+                sale_income = (Decimal(str(quantity)) * Decimal(str(price_per_unit))).quantize(Decimal("0.01"))
+                cleaned_data["sale_income"] = sale_income
+                normalized_paid = Decimal("0.00") if paid_amount in (None, "") else Decimal(str(paid_amount))
+                if normalized_paid < 0:
+                    self.add_error("paid_amount", "Paid amount cannot be negative.")
+                if normalized_paid > sale_income:
+                    self.add_error("paid_amount", "Paid amount cannot exceed sale income.")
+                cleaned_data["paid_amount"] = normalized_paid
+                cleaned_data["payment_status"] = RecordStatus.PAID if sale_income > 0 and normalized_paid >= sale_income else RecordStatus.PENDING
+        else:
+            cleaned_data["paid_amount"] = Decimal("0.00")
         
         return _normalize_form_date_fields(self, cleaned_data, ("date",))
 
@@ -689,6 +706,8 @@ class BlocksRecordForm(forms.ModelForm):
         self.fields["quantity"].required = False
         self.fields["unit_type"].required = False
         self.fields["price_per_unit"].required = False
+        self.fields["paid_amount"].required = False
+        self.fields["paid_amount"].initial = self.initial.get("paid_amount", Decimal("0.00"))
         self.fields["record_type"].label = "Record Type"
         
         for field_name, field in self.fields.items():
@@ -712,6 +731,7 @@ class CementRecordForm(forms.ModelForm):
             "quantity",
             "price_per_unit",
             "sale_income",
+            "paid_amount",
             "notes",
         ]
         widgets = {
@@ -721,6 +741,7 @@ class CementRecordForm(forms.ModelForm):
             "quantity": forms.NumberInput(attrs={"min": "0"}),
             "price_per_unit": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "sale_income": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "paid_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def clean(self):
@@ -732,6 +753,7 @@ class CementRecordForm(forms.ModelForm):
         quantity = cleaned_data.get("quantity")
         unit_type = cleaned_data.get("unit_type")
         price_per_unit = cleaned_data.get("price_per_unit")
+        paid_amount = cleaned_data.get("paid_amount")
 
         if record_type == CementRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
@@ -742,6 +764,7 @@ class CementRecordForm(forms.ModelForm):
                 cleaned_data["customer"] = customer
             else:
                 cleaned_data["customer"] = None
+                self.add_error("customer_input", "Customer is required for sale records.")
         else:
             cleaned_data["payment_status"] = None
             cleaned_data["customer"] = None
@@ -761,6 +784,19 @@ class CementRecordForm(forms.ModelForm):
                 self.add_error("quantity", "Quantity must be greater than 0 for sale records.")
             if price_per_unit is None or price_per_unit < 0:
                 self.add_error("price_per_unit", "Price per unit is required and must be greater than or equal to 0.")
+
+            if quantity not in (None, "") and price_per_unit not in (None, ""):
+                sale_income = (Decimal(str(quantity)) * Decimal(str(price_per_unit))).quantize(Decimal("0.01"))
+                cleaned_data["sale_income"] = sale_income
+                normalized_paid = Decimal("0.00") if paid_amount in (None, "") else Decimal(str(paid_amount))
+                if normalized_paid < 0:
+                    self.add_error("paid_amount", "Paid amount cannot be negative.")
+                if normalized_paid > sale_income:
+                    self.add_error("paid_amount", "Paid amount cannot exceed sale income.")
+                cleaned_data["paid_amount"] = normalized_paid
+                cleaned_data["payment_status"] = RecordStatus.PAID if sale_income > 0 and normalized_paid >= sale_income else RecordStatus.PENDING
+        else:
+            cleaned_data["paid_amount"] = Decimal("0.00")
 
         return _normalize_form_date_fields(self, cleaned_data, ("date",))
 
@@ -788,6 +824,8 @@ class CementRecordForm(forms.ModelForm):
         self.fields["quantity"].required = False
         self.fields["unit_type"].required = False
         self.fields["price_per_unit"].required = False
+        self.fields["paid_amount"].required = False
+        self.fields["paid_amount"].initial = self.initial.get("paid_amount", Decimal("0.00"))
         self.fields["record_type"].label = "Record Type"
 
         for field_name, field in self.fields.items():
@@ -810,6 +848,7 @@ class BambooRecordForm(forms.ModelForm):
             "quantity",
             "price_per_unit",
             "sale_income",
+            "paid_amount",
             "notes",
         ]
         widgets = {
@@ -819,6 +858,7 @@ class BambooRecordForm(forms.ModelForm):
             "quantity": forms.NumberInput(attrs={"min": "0"}),
             "price_per_unit": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "sale_income": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "paid_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
     def clean(self):
@@ -829,6 +869,7 @@ class BambooRecordForm(forms.ModelForm):
         investment = cleaned_data.get("investment")
         quantity = cleaned_data.get("quantity")
         price_per_unit = cleaned_data.get("price_per_unit")
+        paid_amount = cleaned_data.get("paid_amount")
 
         if record_type == BambooRecordType.SALE:
             cleaned_data["payment_status"] = payment_status or RecordStatus.PENDING
@@ -839,6 +880,7 @@ class BambooRecordForm(forms.ModelForm):
                 cleaned_data["customer"] = customer
             else:
                 cleaned_data["customer"] = None
+                self.add_error("customer_input", "Customer is required for sale records.")
         else:
             cleaned_data["payment_status"] = None
             cleaned_data["customer"] = None
@@ -854,6 +896,19 @@ class BambooRecordForm(forms.ModelForm):
                 self.add_error("quantity", "Quantity must be greater than 0 for sale records.")
             if price_per_unit is None or price_per_unit < 0:
                 self.add_error("price_per_unit", "Price per unit is required and must be greater than or equal to 0.")
+
+            if quantity not in (None, "") and price_per_unit not in (None, ""):
+                sale_income = (Decimal(str(quantity)) * Decimal(str(price_per_unit))).quantize(Decimal("0.01"))
+                cleaned_data["sale_income"] = sale_income
+                normalized_paid = Decimal("0.00") if paid_amount in (None, "") else Decimal(str(paid_amount))
+                if normalized_paid < 0:
+                    self.add_error("paid_amount", "Paid amount cannot be negative.")
+                if normalized_paid > sale_income:
+                    self.add_error("paid_amount", "Paid amount cannot exceed sale income.")
+                cleaned_data["paid_amount"] = normalized_paid
+                cleaned_data["payment_status"] = RecordStatus.PAID if sale_income > 0 and normalized_paid >= sale_income else RecordStatus.PENDING
+        else:
+            cleaned_data["paid_amount"] = Decimal("0.00")
 
         return _normalize_form_date_fields(self, cleaned_data, ("date",))
 
@@ -880,6 +935,8 @@ class BambooRecordForm(forms.ModelForm):
         self.fields["investment"].required = False
         self.fields["quantity"].required = False
         self.fields["price_per_unit"].required = False
+        self.fields["paid_amount"].required = False
+        self.fields["paid_amount"].initial = self.initial.get("paid_amount", Decimal("0.00"))
         self.fields["record_type"].label = "Record Type"
 
         for field_name, field in self.fields.items():

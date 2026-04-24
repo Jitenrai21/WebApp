@@ -496,6 +496,8 @@ class BlocksRecord(TimeStampedModel):
         null=True,
         help_text="Auto-calculated: quantity × price (for sale records)"
     )
+    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    pending_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     
     # Sale specific fields (for SALE record type)
     unit_type = models.CharField(
@@ -545,6 +547,18 @@ class BlocksRecord(TimeStampedModel):
                 self.sale_income = (quantity_decimal * price_decimal).quantize(Decimal("0.01"))
             else:
                 self.sale_income = None
+            total_amount = self.sale_income or Decimal("0.00")
+            paid_amount = (self.paid_amount or Decimal("0.00")).quantize(Decimal("0.01"))
+            if paid_amount < 0:
+                paid_amount = Decimal("0.00")
+            if total_amount > 0 and paid_amount > total_amount:
+                paid_amount = total_amount
+            self.paid_amount = paid_amount
+            self.pending_amount = max(total_amount - paid_amount, Decimal("0.00")).quantize(Decimal("0.01"))
+            self.payment_status = RecordStatus.PAID if total_amount > 0 and self.pending_amount == 0 else RecordStatus.PENDING
+        else:
+            self.paid_amount = Decimal("0.00")
+            self.pending_amount = Decimal("0.00")
 
         self.bs_date = ad_to_bs_string(self.date)
         
@@ -622,6 +636,8 @@ class CementRecord(TimeStampedModel):
         null=True,
         help_text="Auto-calculated: quantity × price (for sale records)",
     )
+    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    pending_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     unit_type = models.CharField(
         max_length=20,
@@ -670,6 +686,18 @@ class CementRecord(TimeStampedModel):
                 self.sale_income = (quantity_decimal * price_decimal).quantize(Decimal("0.01"))
             else:
                 self.sale_income = None
+            total_amount = self.sale_income or Decimal("0.00")
+            paid_amount = (self.paid_amount or Decimal("0.00")).quantize(Decimal("0.01"))
+            if paid_amount < 0:
+                paid_amount = Decimal("0.00")
+            if total_amount > 0 and paid_amount > total_amount:
+                paid_amount = total_amount
+            self.paid_amount = paid_amount
+            self.pending_amount = max(total_amount - paid_amount, Decimal("0.00")).quantize(Decimal("0.01"))
+            self.payment_status = RecordStatus.PAID if total_amount > 0 and self.pending_amount == 0 else RecordStatus.PENDING
+        else:
+            self.paid_amount = Decimal("0.00")
+            self.pending_amount = Decimal("0.00")
 
         self.bs_date = ad_to_bs_string(self.date)
 
@@ -738,6 +766,8 @@ class BambooRecord(TimeStampedModel):
         null=True,
         help_text="Auto-calculated: quantity × price (for sale records)",
     )
+    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    pending_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     quantity = models.PositiveIntegerField(
         blank=True,
@@ -778,6 +808,18 @@ class BambooRecord(TimeStampedModel):
                 self.sale_income = (quantity_decimal * price_decimal).quantize(Decimal("0.01"))
             else:
                 self.sale_income = None
+            total_amount = self.sale_income or Decimal("0.00")
+            paid_amount = (self.paid_amount or Decimal("0.00")).quantize(Decimal("0.01"))
+            if paid_amount < 0:
+                paid_amount = Decimal("0.00")
+            if total_amount > 0 and paid_amount > total_amount:
+                paid_amount = total_amount
+            self.paid_amount = paid_amount
+            self.pending_amount = max(total_amount - paid_amount, Decimal("0.00")).quantize(Decimal("0.01"))
+            self.payment_status = RecordStatus.PAID if total_amount > 0 and self.pending_amount == 0 else RecordStatus.PENDING
+        else:
+            self.paid_amount = Decimal("0.00")
+            self.pending_amount = Decimal("0.00")
 
         self.bs_date = ad_to_bs_string(self.date)
 

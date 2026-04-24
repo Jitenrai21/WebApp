@@ -332,7 +332,11 @@ def _filtered_material_records(params, model, record_type_choices, unit_type_cho
     unit_type = (params.get("unit_type", "") or "").strip()
 
     if query:
-        queryset = queryset.filter(Q(notes__icontains=query) | Q(record_type__icontains=query))
+        queryset = queryset.filter(
+            Q(notes__icontains=query)
+            | Q(record_type__icontains=query)
+            | Q(customer__name__icontains=query)
+        )
     if record_type:
         queryset = queryset.filter(record_type=record_type)
     if payment_status:
@@ -684,6 +688,8 @@ def _material_row_factory(queryset, include_unit_type=False):
                 record.price_per_unit,
                 record.investment,
                 record.sale_income,
+                getattr(record, "paid_amount", Decimal("0.00")),
+                getattr(record, "pending_amount", Decimal("0.00")),
                 record.notes,
             ])
             yield row
@@ -696,7 +702,7 @@ def _build_material_definition(params, model, title, filename_slug, has_unit_typ
     headers = ["Date", "Record Type", "Payment Status"]
     if has_unit_type:
         headers.append("Unit Type")
-    headers.extend(["Quantity", "Price Per Unit", "Investment", "Sale Income", "Notes"])
+    headers.extend(["Quantity", "Price Per Unit", "Investment", "Sale Income", "Paid Amount", "Pending Amount", "Notes"])
     summary = [
         f"Date range: {filters['date_from'].isoformat() if filters['date_from'] else 'all time'} to {filters['date_to'].isoformat() if filters['date_to'] else 'all time'}",
         f"Record type: {filters['record_type'] or 'all'}",

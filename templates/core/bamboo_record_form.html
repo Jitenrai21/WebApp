@@ -72,6 +72,12 @@
                     {% if form.sale_income.errors %}<p class="text-error text-sm mt-1">{{ form.sale_income.errors|join:', ' }}</p>{% endif %}
                     <p class="text-xs text-base-content/60 mt-1">{{ form.sale_income.help_text }}</p>
                 </div>
+                <div id="paid-amount-field" class="form-control md:col-span-2 hidden">
+                    <label class="label" for="id_paid_amount"><span class="label-text">Paid Amount (NPR)</span></label>
+                    {{ form.paid_amount }}
+                    {% if form.paid_amount.errors %}<p class="text-error text-sm mt-1">{{ form.paid_amount.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Enter cash received for this sale. Remaining amount is tracked as pending.</p>
+                </div>
                 <div id="payment-status-field" class="form-control md:col-span-2 hidden">
                     <label class="label" for="id_payment_status"><span class="label-text">Payment Status</span></label>
                     {{ form.payment_status }}
@@ -79,7 +85,7 @@
                     <p class="text-xs text-base-content/60 mt-1">Shown for sale records only.</p>
                 </div>
                 <div id="customer-field" class="form-control md:col-span-2 hidden">
-                    <label class="label" for="id_customer_input"><span class="label-text">Customer Assignment (Optional)</span></label>
+                    <label class="label" for="id_customer_input"><span class="label-text">Customer Assignment *</span></label>
                     {{ form.customer_input }}
                     <datalist id="bamboo-customer-options">
                         {% for customer in form.fields.customer.queryset %}
@@ -87,7 +93,7 @@
                         {% endfor %}
                     </datalist>
                     {% if form.customer_input.errors %}<p class="text-error text-sm mt-1">{{ form.customer_input.errors|join:', ' }}</p>{% endif %}
-                    <p class="text-xs text-base-content/60 mt-1">Start typing to see matches, or enter a custom customer name.</p>
+                    <p class="text-xs text-base-content/60 mt-1">Required for sale records. Start typing to see matches, or enter a custom customer name.</p>
                 </div>
             </div>
         </div>
@@ -112,20 +118,25 @@
     const paymentStatusInput = document.getElementById('id_payment_status');
     const customerField = document.getElementById('customer-field');
     const customerInput = document.getElementById('id_customer_input');
+    const paidAmountField = document.getElementById('paid-amount-field');
+    const paidAmountInput = document.getElementById('id_paid_amount');
 
     function togglePaymentStatusField() {
-        if (!recordTypeInput || !paymentStatusField || !paymentStatusInput || !customerField || !customerInput) {
+        if (!recordTypeInput || !paymentStatusField || !paymentStatusInput || !customerField || !customerInput || !paidAmountField || !paidAmountInput) {
             return;
         }
         const isSale = recordTypeInput.value === 'sale';
         paymentStatusField.classList.toggle('hidden', !isSale);
         customerField.classList.toggle('hidden', !isSale);
+        paidAmountField.classList.toggle('hidden', !isSale);
+        customerInput.required = isSale;
         if (isSale && !paymentStatusInput.value) {
             paymentStatusInput.value = 'pending';
         }
         if (!isSale) {
             paymentStatusInput.value = '';
             customerInput.value = '';
+            paidAmountInput.value = '0.00';
         }
     }
 

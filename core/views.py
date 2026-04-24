@@ -92,12 +92,65 @@ def _customer_due_amount_from_sales(customer):
 		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
 		total_paid=Coalesce(Sum("paid_amount"), Value(Decimal("0.00"))),
 	)
+	material_pending = _customer_material_pending_total(customer)
 	return _calculate_customer_due_amount(
-		payment_totals["total_sales"],
+		payment_totals["total_sales"] + material_pending,
 		payment_totals["total_paid"],
 		customer.manual_due_amount,
 		customer.credit_balance,
 	)
+
+
+def _customer_material_pending_total(customer):
+	blocks_pending = customer.blocks_records.filter(record_type=BlocksRecordType.SALE).aggregate(
+		total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+	)["total"]
+	cement_pending = customer.cement_records.filter(record_type=CementRecordType.SALE).aggregate(
+		total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+	)["total"]
+	bamboo_pending = customer.bamboo_records.filter(record_type=BambooRecordType.SALE).aggregate(
+		total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+	)["total"]
+	return blocks_pending + cement_pending + bamboo_pending
+
+
+def _material_pending_rows_for_customer(customer):
+	rows = []
+
+	for record in customer.blocks_records.filter(record_type=BlocksRecordType.SALE).order_by("date", "created_at", "id"):
+		if record.pending_amount <= 0:
+			continue
+		rows.append({
+			"module": "blocks",
+			"label": "Blocks",
+			"record": record,
+			"pending_amount": record.pending_amount,
+			"descriptor": f"{record.get_unit_type_display() or 'Sale'} | {record.quantity or 0} units",
+		})
+
+	for record in customer.cement_records.filter(record_type=CementRecordType.SALE).order_by("date", "created_at", "id"):
+		if record.pending_amount <= 0:
+			continue
+		rows.append({
+			"module": "cement",
+			"label": "Cement",
+			"record": record,
+			"pending_amount": record.pending_amount,
+			"descriptor": f"{record.get_unit_type_display() or 'Sale'} | {record.quantity or 0} units",
+		})
+
+	for record in customer.bamboo_records.filter(record_type=BambooRecordType.SALE).order_by("date", "created_at", "id"):
+		if record.pending_amount <= 0:
+			continue
+		rows.append({
+			"module": "bamboo",
+			"label": "Bamboo",
+			"record": record,
+			"pending_amount": record.pending_amount,
+			"descriptor": f"Sale | {record.quantity or 0} units",
+		})
+
+	return rows
 
 
 def _get_or_create_predefined_category(name):
@@ -406,6 +459,18 @@ def _dashboard_context(date_from="", date_to=""):
 		((sale.total_amount - sale.received_total) for sale in all_time_sales_rows),
 		Decimal("0.00"),
 	)
+	material_outstanding = (
+		BlocksRecord.objects.filter(record_type=BlocksRecordType.SALE).aggregate(
+			total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+		)["total"]
+		+ CementRecord.objects.filter(record_type=CementRecordType.SALE).aggregate(
+			total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+		)["total"]
+		+ BambooRecord.objects.filter(record_type=BambooRecordType.SALE).aggregate(
+			total=Coalesce(Sum("pending_amount"), Value(Decimal("0.00")))
+		)["total"]
+	)
+	outstanding_receivables += material_outstanding
 	manual_due_total = sum(
 		(customer.manual_due_amount for customer in Customer.objects.filter(manual_due_amount__gt=0)),
 		Decimal("0.00"),
@@ -528,6 +593,45 @@ def _dashboard_context(date_from="", date_to=""):
 				"total": Decimal("0.00"),
 			}
 		pending_customer_totals[customer_key]["total"] += customer.manual_due_amount
+
+	for record in BlocksRecord.objects.select_related("customer").filter(
+		record_type=BlocksRecordType.SALE,
+		customer__isnull=False,
+		pending_amount__gt=0,
+	):
+		customer_key = record.customer_id
+		if customer_key not in pending_customer_totals:
+			pending_customer_totals[customer_key] = {
+				"name": record.customer.name,
+				"total": Decimal("0.00"),
+			}
+		pending_customer_totals[customer_key]["total"] += record.pending_amount
+
+	for record in CementRecord.objects.select_related("customer").filter(
+		record_type=CementRecordType.SALE,
+		customer__isnull=False,
+		pending_amount__gt=0,
+	):
+		customer_key = record.customer_id
+		if customer_key not in pending_customer_totals:
+			pending_customer_totals[customer_key] = {
+				"name": record.customer.name,
+				"total": Decimal("0.00"),
+			}
+		pending_customer_totals[customer_key]["total"] += record.pending_amount
+
+	for record in BambooRecord.objects.select_related("customer").filter(
+		record_type=BambooRecordType.SALE,
+		customer__isnull=False,
+		pending_amount__gt=0,
+	):
+		customer_key = record.customer_id
+		if customer_key not in pending_customer_totals:
+			pending_customer_totals[customer_key] = {
+				"name": record.customer.name,
+				"total": Decimal("0.00"),
+			}
+		pending_customer_totals[customer_key]["total"] += record.pending_amount
 
 	top_pending_customer_rows = sorted(
 		pending_customer_totals.values(),
@@ -864,6 +968,33 @@ def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount
 			.filter(customer=customer, status=RecordStatus.PENDING)
 			.order_by("due_date", "date", "created_at", "id")
 		)
+		pending_blocks = list(
+			BlocksRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=BlocksRecordType.SALE,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
+		pending_cement = list(
+			CementRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=CementRecordType.SALE,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
+		pending_bamboo = list(
+			BambooRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=BambooRecordType.SALE,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
 
 		customer_payment = CustomerPayment.objects.create(
 			customer=customer,
@@ -919,6 +1050,43 @@ def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount
 
 			sale.refresh_from_db(fields=["status", "paid_amount"])
 			if sale.status == RecordStatus.PAID:
+				fully_paid_count += 1
+			else:
+				partial_count += 1
+
+		for record in [*pending_blocks, *pending_cement, *pending_bamboo]:
+			if remaining_payment <= 0:
+				break
+
+			record_due = record.pending_amount
+			if record_due <= 0:
+				continue
+
+			allocation_amount = min(remaining_payment, record_due)
+			if allocation_amount <= 0:
+				continue
+
+			description = f"Auto-allocated cash entry to {record.__class__.__name__} sale #{record.id}"
+			if notes:
+				description = f"{description} | {notes}"
+
+			_create_material_allocation_transaction(
+				record,
+				customer,
+				payment_date,
+				payment_method,
+				description,
+				allocation_amount,
+				category_name=PAYMENT_ALLOCATION_CATEGORY,
+				customer_payment=customer_payment,
+			)
+
+			remaining_payment -= allocation_amount
+			allocated_total += allocation_amount
+
+			_sync_material_sale_payment_fields(record)
+			record.refresh_from_db(fields=["payment_status", "pending_amount"])
+			if record.payment_status == RecordStatus.PAID:
 				fully_paid_count += 1
 			else:
 				partial_count += 1
@@ -994,6 +1162,120 @@ def _sync_sale_after_receipt_change(sale):
 	_sync_sale_payment_fields(sale)
 	_sync_paid_sale_income_entry(sale)
 	_sync_sale_payment_fields(sale)
+
+
+def _material_transaction_binding(record):
+	if isinstance(record, BlocksRecord):
+		return {
+			"txn_field": "blocks_record",
+			"category": "Blocks Sale Income",
+			"description": f"Income from {record.get_unit_type_display() or 'blocks'} sale ({record.quantity or 0} units @ {record.price_per_unit or Decimal('0.00')})",
+		}
+	if isinstance(record, CementRecord):
+		return {
+			"txn_field": "cement_record",
+			"category": "Cement Sale Income",
+			"description": f"Income from {record.get_unit_type_display() or 'cement'} sale ({record.quantity or 0} units @ {record.price_per_unit or Decimal('0.00')})",
+		}
+	if isinstance(record, BambooRecord):
+		return {
+			"txn_field": "bamboo_record",
+			"category": "Bamboo Sale Income",
+			"description": f"Income from bamboo sale ({record.quantity or 0} units @ {record.price_per_unit or Decimal('0.00')})",
+		}
+	raise ValueError("Unsupported material record type")
+
+
+def _sync_material_sale_payment_fields(record):
+	if not record.is_sale:
+		return
+	binding = _material_transaction_binding(record)
+	txn_filter = {
+		binding["txn_field"]: record,
+		"type": TransactionType.INCOME,
+	}
+	total_received = Transaction.objects.filter(**txn_filter).aggregate(
+		total=Coalesce(Sum("amount"), Value(Decimal("0.00")))
+	)["total"]
+
+	record.paid_amount = total_received
+	record.save(update_fields=["paid_amount", "pending_amount", "payment_status", "sale_income", "bs_date", "updated_at"])
+
+
+def _reconcile_material_sale_income_transaction(record):
+	"""Align the module auto-income entry with form-level paid amount while preserving manual allocations."""
+	if not record.is_sale:
+		return
+	binding = _material_transaction_binding(record)
+	category = _get_or_create_predefined_category(binding["category"])
+	base_filter = {
+		binding["txn_field"]: record,
+		"type": TransactionType.INCOME,
+	}
+	auto_qs = Transaction.objects.filter(**base_filter, category=category)
+	non_auto_total = Transaction.objects.filter(**base_filter).exclude(category=category).aggregate(
+		total=Coalesce(Sum("amount"), Value(Decimal("0.00")))
+	)["total"]
+
+	target_paid = min(record.paid_amount or Decimal("0.00"), record.sale_income or Decimal("0.00"))
+	remaining_for_auto = target_paid - non_auto_total
+	if remaining_for_auto < 0:
+		remaining_for_auto = Decimal("0.00")
+
+	if remaining_for_auto > 0:
+		auto_entry = auto_qs.order_by("created_at").first()
+		if auto_entry:
+			auto_entry.date = record.date
+			auto_entry.amount = remaining_for_auto
+			auto_entry.customer = record.customer
+			auto_entry.description = binding["description"]
+			auto_entry.save(update_fields=["date", "amount", "customer", "description", "updated_at"])
+			auto_qs.exclude(pk=auto_entry.pk).delete()
+		else:
+			create_kwargs = {
+				"date": record.date,
+				"amount": remaining_for_auto,
+				"type": TransactionType.INCOME,
+				"category": category,
+				"description": binding["description"],
+				"customer": record.customer,
+				binding["txn_field"]: record,
+			}
+			Transaction.objects.create(**create_kwargs)
+	else:
+		auto_qs.delete()
+
+	_sync_material_sale_payment_fields(record)
+
+
+def _create_material_allocation_transaction(
+	record,
+	customer,
+	payment_date,
+	payment_method,
+	description,
+	amount,
+	*,
+	category_name=PAYMENT_ALLOCATION_CATEGORY,
+	customer_payment=None,
+):
+	binding = _material_transaction_binding(record)
+	txn_kwargs = {
+		"date": payment_date,
+		"amount": amount,
+		"type": TransactionType.INCOME,
+		"payment_method": payment_method,
+		"category": _get_or_create_predefined_category(category_name),
+		"description": description,
+		"customer": customer,
+		binding["txn_field"]: record,
+	}
+	transaction_obj = Transaction.objects.create(**txn_kwargs)
+	if customer_payment is not None:
+		# Keep parity with invoice allocations by preserving a transaction link to the payment event.
+		transaction_obj.description = f"{description} [Customer Payment #{customer_payment.id}]"
+		transaction_obj.save(update_fields=["description", "updated_at"])
+	return transaction_obj
 
 
 def _sync_jcb_transactions(jcb_record):
@@ -1181,6 +1463,10 @@ def _customer_payment_context(customer, request):
 			}
 		)
 
+	pending_material_rows = _material_pending_rows_for_customer(customer)
+	pending_material_total = sum((row["pending_amount"] for row in pending_material_rows), Decimal("0.00"))
+	pending_item_count = len(pending_sales_rows) + len(pending_material_rows)
+
 	transaction_totals = customer.transactions.filter(type=TransactionType.INCOME).exclude(
 		category__name=CREDIT_BALANCE_APPLIED_CATEGORY,
 	).aggregate(
@@ -1193,6 +1479,9 @@ def _customer_payment_context(customer, request):
 		"sales_rows": sales_rows,
 		"pending_sales": pending_sales,
 		"pending_sales_rows": pending_sales_rows,
+		"pending_material_rows": pending_material_rows,
+		"pending_material_total": pending_material_total,
+		"pending_item_count": pending_item_count,
 		"total_payment": transaction_totals["total_income"],
 		"due_amount": due_amount,
 		"manual_due_amount": customer.manual_due_amount,
@@ -2141,6 +2430,9 @@ def customer_allocate_payment(request, pk):
 	allocation_mode = request.POST.get("allocation_mode", "cash").strip()
 	use_credit_balance = allocation_mode == "credit"
 	sale_ids = request.POST.getlist("sale_ids")
+	blocks_sale_ids = request.POST.getlist("blocks_sale_ids")
+	cement_sale_ids = request.POST.getlist("cement_sale_ids")
+	bamboo_sale_ids = request.POST.getlist("bamboo_sale_ids")
 	notes = request.POST.get("notes", "").strip()
 	allocate_manual_due = request.POST.get("allocate_manual_due") == "on"
 
@@ -2167,7 +2459,7 @@ def customer_allocate_payment(request, pk):
 		messages.error(request, message)
 		return redirect("customer_detail", pk=customer.pk)
 
-	if not sale_ids and not allocate_manual_due:
+	if not sale_ids and not blocks_sale_ids and not cement_sale_ids and not bamboo_sale_ids and not allocate_manual_due:
 		message = "Select at least one pending sale or manual due to allocate payment."
 		if request.headers.get("HX-Request"):
 			context = {"customer": customer, "allocation_error": message}
@@ -2191,8 +2483,38 @@ def customer_allocate_payment(request, pk):
 			.filter(customer=customer, status=RecordStatus.PENDING, id__in=sale_ids)
 			.order_by("date", "created_at", "id")
 		)
+		selected_blocks_sales = list(
+			BlocksRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=BlocksRecordType.SALE,
+				id__in=blocks_sale_ids,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
+		selected_cement_sales = list(
+			CementRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=CementRecordType.SALE,
+				id__in=cement_sale_ids,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
+		selected_bamboo_sales = list(
+			BambooRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				record_type=BambooRecordType.SALE,
+				id__in=bamboo_sale_ids,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
 
-		if not selected_sales and not allocate_manual_due:
+		if not selected_sales and not selected_blocks_sales and not selected_cement_sales and not selected_bamboo_sales and not allocate_manual_due:
 			message = "No eligible pending sales or manual due found for allocation."
 			if request.headers.get("HX-Request"):
 				context = {"customer": customer, "allocation_error": message}
@@ -2268,6 +2590,49 @@ def customer_allocate_payment(request, pk):
 				fully_paid_count += 1
 			else:
 				partial_count += 1
+
+		for module_name, module_records in [
+			("blocks", selected_blocks_sales),
+			("cement", selected_cement_sales),
+			("bamboo", selected_bamboo_sales),
+		]:
+			for record in module_records:
+				if remaining_payment <= 0:
+					break
+
+				record_due = record.pending_amount
+				if record_due <= 0:
+					continue
+
+				allocation_amount = min(remaining_payment, record_due)
+				if allocation_amount <= 0:
+					continue
+
+				description = f"Allocated from customer payment to {module_name} sale #{record.id}"
+				if use_credit_balance:
+					description = f"Allocated from customer credit balance to {module_name} sale #{record.id}"
+
+				transaction_category = CREDIT_BALANCE_APPLIED_CATEGORY if use_credit_balance else PAYMENT_ALLOCATION_CATEGORY
+				payment_method_to_use = PaymentMethod.CASH if use_credit_balance else payment_method
+				_create_material_allocation_transaction(
+					record,
+					customer,
+					payment_date,
+					payment_method_to_use,
+					description,
+					allocation_amount,
+					category_name=transaction_category,
+					customer_payment=customer_payment,
+				)
+
+				remaining_payment -= allocation_amount
+				allocated_total += allocation_amount
+				_sync_material_sale_payment_fields(record)
+				record.refresh_from_db(fields=["payment_status", "pending_amount"])
+				if record.payment_status == RecordStatus.PAID:
+					fully_paid_count += 1
+				else:
+					partial_count += 1
 
 		# Handle manually added due amounts
 		manual_due_to_allocate = allocate_manual_due
@@ -2637,7 +3002,7 @@ def blocks_record_create(request):
 			
 			# Only sale records create linked global income transactions.
 			if blocks_record.is_sale:
-				_create_blocks_sale_transaction(blocks_record)
+				_reconcile_material_sale_income_transaction(blocks_record)
 			
 			messages.success(request, "Blocks record created successfully.")
 			return redirect("blocks_records")
@@ -2667,9 +3032,13 @@ def blocks_record_edit(request, pk):
 			blocks_record = form.save()
 			
 			# Keep only sale-income sync behavior; investment never links to global expense.
-			blocks_record.transactions.filter(type=TransactionType.INCOME).delete()
+			blocks_record.transactions.filter(type=TransactionType.INCOME).exclude(
+				category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY)
+			).exclude(
+				category=_get_or_create_predefined_category(CREDIT_BALANCE_APPLIED_CATEGORY)
+			).delete()
 			if blocks_record.is_sale:
-				_create_blocks_sale_transaction(blocks_record)
+				_reconcile_material_sale_income_transaction(blocks_record)
 			
 			messages.success(request, "Blocks record updated successfully.")
 			return redirect("blocks_records")
@@ -2719,26 +3088,20 @@ def blocks_record_mark_paid(request, pk):
 		messages.info(request, "Blocks record is already marked as paid.")
 		return _redirect_to_next_or_default(request, "blocks_records")
 
-	blocks_record.payment_status = RecordStatus.PAID
-	blocks_record.save(update_fields=["payment_status", "updated_at"])
+	if not blocks_record.customer_id:
+		messages.error(request, "Assign a customer before marking this sale as paid.")
+		return _redirect_to_next_or_default(request, "blocks_records")
+
+	blocks_record.paid_amount = blocks_record.sale_income or Decimal("0.00")
+	blocks_record.save()
+	_reconcile_material_sale_income_transaction(blocks_record)
 	messages.success(request, f"Blocks sale record on {blocks_record.date} marked as paid.")
 	return _redirect_to_next_or_default(request, "blocks_records")
 
 
 def _create_blocks_sale_transaction(blocks_record):
 	"""Create transaction entries for blocks sale records."""
-	BLOCKS_SALE_INCOME_CATEGORY = "Blocks Sale Income"
-
-	if blocks_record.record_type == BlocksRecordType.SALE and blocks_record.sale_income:
-		Transaction.objects.create(
-			date=blocks_record.date,
-			amount=blocks_record.sale_income,
-			type=TransactionType.INCOME,
-			category=_get_or_create_predefined_category(BLOCKS_SALE_INCOME_CATEGORY),
-			description=f"Income from {blocks_record.unit_type} blocks sale ({blocks_record.quantity} units @ {blocks_record.price_per_unit})",
-			customer=blocks_record.customer,
-			blocks_record=blocks_record,
-		)
+	_reconcile_material_sale_income_transaction(blocks_record)
 
 
 # CEMENT RECORDS VIEWS
@@ -2824,7 +3187,7 @@ def cement_record_create(request):
 		if form.is_valid():
 			cement_record = form.save()
 			if cement_record.is_sale:
-				_create_cement_sale_transaction(cement_record)
+				_reconcile_material_sale_income_transaction(cement_record)
 			messages.success(request, "Cement record created successfully.")
 			return redirect("cement_records")
 		messages.error(request, "Please fix the errors below.")
@@ -2851,9 +3214,13 @@ def cement_record_edit(request, pk):
 		form = CementRecordForm(request.POST, instance=cement_record, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
 			cement_record = form.save()
-			cement_record.transactions.filter(type=TransactionType.INCOME).delete()
+			cement_record.transactions.filter(type=TransactionType.INCOME).exclude(
+				category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY)
+			).exclude(
+				category=_get_or_create_predefined_category(CREDIT_BALANCE_APPLIED_CATEGORY)
+			).delete()
 			if cement_record.is_sale:
-				_create_cement_sale_transaction(cement_record)
+				_reconcile_material_sale_income_transaction(cement_record)
 			messages.success(request, "Cement record updated successfully.")
 			return redirect("cement_records")
 		messages.error(request, "Please fix the errors below.")
@@ -2901,26 +3268,20 @@ def cement_record_mark_paid(request, pk):
 		messages.info(request, "Cement record is already marked as paid.")
 		return _redirect_to_next_or_default(request, "cement_records")
 
-	cement_record.payment_status = RecordStatus.PAID
-	cement_record.save(update_fields=["payment_status", "updated_at"])
+	if not cement_record.customer_id:
+		messages.error(request, "Assign a customer before marking this sale as paid.")
+		return _redirect_to_next_or_default(request, "cement_records")
+
+	cement_record.paid_amount = cement_record.sale_income or Decimal("0.00")
+	cement_record.save()
+	_reconcile_material_sale_income_transaction(cement_record)
 	messages.success(request, f"Cement sale record on {cement_record.date} marked as paid.")
 	return _redirect_to_next_or_default(request, "cement_records")
 
 
 def _create_cement_sale_transaction(cement_record):
 	"""Create transaction entries for cement sale records."""
-	CEMENT_SALE_INCOME_CATEGORY = "Cement Sale Income"
-
-	if cement_record.record_type == CementRecordType.SALE and cement_record.sale_income:
-		Transaction.objects.create(
-			date=cement_record.date,
-			amount=cement_record.sale_income,
-			type=TransactionType.INCOME,
-			category=_get_or_create_predefined_category(CEMENT_SALE_INCOME_CATEGORY),
-			description=f"Income from {cement_record.unit_type} cement sale ({cement_record.quantity} units @ {cement_record.price_per_unit})",
-			customer=cement_record.customer,
-			cement_record=cement_record,
-		)
+	_reconcile_material_sale_income_transaction(cement_record)
 
 
 # BAMBOO RECORDS VIEWS
@@ -3001,7 +3362,7 @@ def bamboo_record_create(request):
 		if form.is_valid():
 			bamboo_record = form.save()
 			if bamboo_record.is_sale:
-				_create_bamboo_sale_transaction(bamboo_record)
+				_reconcile_material_sale_income_transaction(bamboo_record)
 			messages.success(request, "Bamboo record created successfully.")
 			return redirect("bamboo_records")
 		messages.error(request, "Please fix the errors below.")
@@ -3028,9 +3389,13 @@ def bamboo_record_edit(request, pk):
 		form = BambooRecordForm(request.POST, instance=bamboo_record, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
 			bamboo_record = form.save()
-			bamboo_record.transactions.filter(type=TransactionType.INCOME).delete()
+			bamboo_record.transactions.filter(type=TransactionType.INCOME).exclude(
+				category=_get_or_create_predefined_category(PAYMENT_ALLOCATION_CATEGORY)
+			).exclude(
+				category=_get_or_create_predefined_category(CREDIT_BALANCE_APPLIED_CATEGORY)
+			).delete()
 			if bamboo_record.is_sale:
-				_create_bamboo_sale_transaction(bamboo_record)
+				_reconcile_material_sale_income_transaction(bamboo_record)
 			messages.success(request, "Bamboo record updated successfully.")
 			return redirect("bamboo_records")
 		messages.error(request, "Please fix the errors below.")
@@ -3078,23 +3443,17 @@ def bamboo_record_mark_paid(request, pk):
 		messages.info(request, "Bamboo record is already marked as paid.")
 		return _redirect_to_next_or_default(request, "bamboo_records")
 
-	bamboo_record.payment_status = RecordStatus.PAID
-	bamboo_record.save(update_fields=["payment_status", "updated_at"])
+	if not bamboo_record.customer_id:
+		messages.error(request, "Assign a customer before marking this sale as paid.")
+		return _redirect_to_next_or_default(request, "bamboo_records")
+
+	bamboo_record.paid_amount = bamboo_record.sale_income or Decimal("0.00")
+	bamboo_record.save()
+	_reconcile_material_sale_income_transaction(bamboo_record)
 	messages.success(request, f"Bamboo sale record on {bamboo_record.date} marked as paid.")
 	return _redirect_to_next_or_default(request, "bamboo_records")
 
 
 def _create_bamboo_sale_transaction(bamboo_record):
 	"""Create transaction entries for bamboo sale records."""
-	BAMBOO_SALE_INCOME_CATEGORY = "Bamboo Sale Income"
-
-	if bamboo_record.record_type == BambooRecordType.SALE and bamboo_record.sale_income:
-		Transaction.objects.create(
-			date=bamboo_record.date,
-			amount=bamboo_record.sale_income,
-			type=TransactionType.INCOME,
-			category=_get_or_create_predefined_category(BAMBOO_SALE_INCOME_CATEGORY),
-			description=f"Income from bamboo sale ({bamboo_record.quantity} units @ {bamboo_record.price_per_unit})",
-			customer=bamboo_record.customer,
-			bamboo_record=bamboo_record,
-		)
+	_reconcile_material_sale_income_transaction(bamboo_record)

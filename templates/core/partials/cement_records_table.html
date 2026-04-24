@@ -16,6 +16,8 @@
                     <th>Quantity</th>
                     <th>Investment</th>
                     <th>Sale Income</th>
+                    <th>Paid</th>
+                    <th>Pending</th>
                     <th>Notes</th>
                     <th class="text-right whitespace-nowrap">Actions</th>
                 </tr>
@@ -70,6 +72,20 @@
                     <td>
                         {% if record.sale_income %}
                             <span class="text-success font-medium">NPR {{ record.sale_income|npr_amount }}</span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.record_type == 'sale' %}
+                            <span class="font-medium">NPR {{ record.paid_amount|npr_amount }}</span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.record_type == 'sale' %}
+                            <span class="font-medium {% if record.pending_amount > 0 %}text-error{% else %}text-success{% endif %}">NPR {{ record.pending_amount|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
@@ -139,7 +155,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10" class="text-center py-8">
+                    <td colspan="12" class="text-center py-8">
                         <div class="space-y-2">
                             <p class="text-base-content/70">No cement records found.</p>
                             <a href="{% url 'cement_record_create' %}" class="btn btn-sm btn-primary">Create First Record</a>

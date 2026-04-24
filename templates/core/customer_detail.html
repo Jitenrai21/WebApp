@@ -145,7 +145,7 @@
                     <tr>
                         <td colspan="5" class="text-right pr-4">Total Due:</td>
                         <td class="font-semibold text-error">
-                            <span id="pending-total-due">NPR 0</span>
+                            <span id="pending-total-due">NPR {{ due_amount|npr_amount }}</span>
                         </td>
                         <td></td>
                     </tr>
@@ -161,40 +161,40 @@
             </span>
         </div>
         {% endif %}
+
+        {% if pending_material_rows %}
+        <div class="cf-table-shell">
+            <div class="cf-table-head">
+                <h2 class="font-semibold">Pending Module Sales</h2>
+                <span class="text-xs text-base-content/60">{{ pending_material_rows|length }} item{{ pending_material_rows|length|pluralize }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-zebra table-md">
+                    <thead>
+                        <tr>
+                            <th>Module</th>
+                            <th>Record</th>
+                            <th>Date</th>
+                            <th>Details</th>
+                            <th>Pending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in pending_material_rows %}
+                        <tr>
+                            <td>{{ row.label }}</td>
+                            <td>#{{ row.record.id }}</td>
+                            <td>{{ row.record.date|calendar_date:request }}</td>
+                            <td>{{ row.descriptor }}</td>
+                            <td class="font-semibold text-error">NPR {{ row.pending_amount|npr_amount }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            function formatNprAmount(value) {
-                const numeric = Number(value);
-                if (!Number.isFinite(numeric)) {
-                    return '0';
-                }
-
-                const rounded = Number(numeric.toFixed(2));
-                const hasFraction = Math.abs(rounded % 1) > 0;
-                return rounded.toLocaleString('en-IN', {
-                    minimumFractionDigits: hasFraction ? 2 : 0,
-                    maximumFractionDigits: hasFraction ? 2 : 0
-                });
-            }
-
-            const rows = document.querySelectorAll('[data-pending-row="true"]');
-            const tableContainer = document.querySelector('[data-manual-due]');
-            let totalDue = 0;
-            
-            rows.forEach(row => {
-                const dueText = row.dataset.dueAmount || '0';
-                totalDue += parseFloat(dueText.replace(/,/g, ''));
-            });
-            
-            // Add manual due amount
-            const manualDue = tableContainer ? parseFloat(tableContainer.dataset.manualDue || '0') : 0;
-            totalDue += manualDue;
-            
-            document.getElementById('pending-total-due').textContent = 'NPR ' + formatNprAmount(totalDue);
-        });
-    </script>
     {% endif %}
 </div>
 {% endblock %}

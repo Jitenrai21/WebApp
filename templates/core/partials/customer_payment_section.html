@@ -4,7 +4,7 @@
         <div class="cf-kpi-card"><p class="kpi-label">Total Payment</p><p class="kpi-value">NPR {{ total_payment|npr_amount }}</p></div>
         <div class="cf-kpi-card"><p class="kpi-label">Due Amount</p><p class="kpi-value">NPR {{ due_amount|npr_amount }}</p></div>
         <div class="cf-kpi-card"><p class="kpi-label">Credit Balance</p><p class="kpi-value">NPR {{ customer.credit_balance|npr_amount }}</p></div>
-        <div class="cf-kpi-card"><p class="kpi-label">Sales Count</p><p class="kpi-value">{{ sales|length }}</p></div>
+        <div class="cf-kpi-card"><p class="kpi-label">Sales Count</p><p class="kpi-value">{{ sales|length }} + {{ pending_material_rows|length }} module</p></div>
     </div>
 
     <div class="cf-section">
@@ -14,7 +14,7 @@
                     <h2 class="card-title text-lg">Allocate Customer Payment</h2>
                     <p class="text-sm opacity-70">Select pending invoices, enter payment amount, and allocate in invoice order.</p>
                 </div>
-                <div class="badge badge-outline border-base-300 text-base-content/70">{{ pending_sales_rows|length }} pending</div>
+                <div class="badge badge-outline border-base-300 text-base-content/70">{{ pending_item_count }} pending</div>
             </div>
 
             {% if allocation_success %}
@@ -91,7 +91,16 @@
                             <span class="font-semibold text-warning">NPR {{ manual_due_amount|npr_amount }}</span>
                         </label>
                         {% endif %}
-                        {% if not pending_sales_rows and manual_due_amount <= 0 %}
+                        {% for row in pending_material_rows %}
+                        <label class="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 text-sm hover:bg-base-200/20 transition-colors">
+                            <span>
+                                <input type="checkbox" name="{{ row.module }}_sale_ids" value="{{ row.record.id }}" class="checkbox checkbox-primary border-base-300 scale-105">
+                            </span>
+                            <span>{{ row.label }} Sale #{{ row.record.id }} | {{ row.record.date|calendar_date:request }} | {{ row.descriptor }}</span>
+                            <span class="font-semibold">NPR {{ row.pending_amount|npr_amount }}</span>
+                        </label>
+                        {% endfor %}
+                        {% if not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}
                         <p class="p-4 text-sm opacity-70">No pending sales or manual due available for allocation.</p>
                         {% endif %}
                         </div>
@@ -106,11 +115,11 @@
                         value="credit"
                         formnovalidate
                         class="btn btn-outline"
-                        {% if customer.credit_balance <= 0 or not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}
+                        {% if customer.credit_balance <= 0 or not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}disabled{% endif %}
                     >
                         Apply Credit Balance
                     </button>
-                    <button type="submit" name="allocation_mode" value="cash" class="btn btn-primary" {% if not pending_sales_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
+                    <button type="submit" name="allocation_mode" value="cash" class="btn btn-primary" {% if not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
                 </div>
             </form>
         </div>
