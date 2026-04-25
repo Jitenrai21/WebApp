@@ -25,7 +25,7 @@
             <tbody>
                 {% for record in blocks_records %}
                 <tr>
-                    <td><span class="font-medium">{{ record.date|calendar_date:request }}</span></td>
+                    <td>{{ record.date|calendar_date:request }}</td>
                     <td>
                         {% if record.record_type == 'sale' %}
                             <div class="badge badge-sm badge-success badge-outline gap-1 whitespace-nowrap">
@@ -64,35 +64,35 @@
                     <td>{{ record.quantity|default:"-" }}</td>
                     <td>
                         {% if record.investment %}
-                            <span class="text-error font-medium">NPR {{ record.investment|npr_amount }}</span>
+                            <span class="text-error">NPR {{ record.investment|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if record.sale_income %}
-                            <span class="text-success font-medium">NPR {{ record.sale_income|npr_amount }}</span>
+                            <span class="text-success">NPR {{ record.sale_income|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if record.record_type == 'sale' %}
-                            <span class="font-medium">NPR {{ record.paid_amount|npr_amount }}</span>
+                            <span>NPR {{ record.paid_amount|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if record.record_type == 'sale' %}
-                            <span class="font-medium {% if record.pending_amount > 0 %}text-error{% else %}text-success{% endif %}">NPR {{ record.pending_amount|npr_amount }}</span>
+                            <span class="{% if record.pending_amount > 0 %}text-error{% else %}text-success{% endif %}">NPR {{ record.pending_amount|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if record.notes %}
-                            <span class="truncate text-xs max-w-xs text-base-content/70">{{ record.notes }}</span>
+                            <span class="truncate text-sm max-w-xs text-base-content/70">{{ record.notes }}</span>
                         {% else %}
                             <span class="text-base-content/50 italic">No notes</span>
                         {% endif %}

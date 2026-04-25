@@ -136,17 +136,20 @@ class SaleForm(forms.ModelForm):
             "items",
             "notes",
             "total_amount",
+            "paid_amount",
             "due_date",
         ]
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "due_date": forms.DateInput(attrs={"type": "date"}),
+            "paid_amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "items": forms.HiddenInput(),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
         help_texts = {
             "items": "Add items with name and price using the item table.",
+            "paid_amount": "Enter any amount received now. The remaining balance can be settled later.",
         }
 
     def clean_total_amount(self):
@@ -154,6 +157,17 @@ class SaleForm(forms.ModelForm):
         if total_amount <= 0:
             raise forms.ValidationError("Total amount must be greater than 0.")
         return total_amount
+
+    def clean_paid_amount(self):
+        paid_amount = self.cleaned_data.get("paid_amount") or Decimal("0.00")
+        if paid_amount < 0:
+            raise forms.ValidationError("Amount paid cannot be negative.")
+
+        total_amount = self.cleaned_data.get("total_amount")
+        if total_amount not in (None, "") and paid_amount > total_amount:
+            raise forms.ValidationError("Amount paid cannot exceed total amount.")
+
+        return paid_amount
 
     def clean_invoice_number(self):
         invoice_number = (self.cleaned_data.get("invoice_number") or "").strip()
@@ -215,6 +229,8 @@ class SaleForm(forms.ModelForm):
         status = cleaned_data.get("status")
         due_date = cleaned_data.get("due_date")
         alert_enabled = cleaned_data.get("alert_enabled")
+        paid_amount = cleaned_data.get("paid_amount") or Decimal("0.00")
+        total_amount = cleaned_data.get("total_amount") or Decimal("0.00")
         customer_name = (cleaned_data.get("customer_input") or "").strip()
 
         if customer_name:
@@ -229,6 +245,8 @@ class SaleForm(forms.ModelForm):
             cleaned_data["due_date"] = None
             if alert_enabled:
                 cleaned_data["alert_enabled"] = False
+        elif paid_amount > 0 and paid_amount < total_amount:
+            cleaned_data["status"] = RecordStatus.PENDING
         elif not due_date:
             self.add_error("due_date", "Due date is required when sale status is Pending.")
 
@@ -246,6 +264,8 @@ class SaleForm(forms.ModelForm):
         self.fields["customer_input"].widget.attrs["list"] = "sale-customer-options"
         if not self.is_bound and not (self.instance and self.instance.pk):
             self.fields["due_date"].initial = timezone.localdate()
+        if self.instance and self.instance.pk:
+            self.fields["paid_amount"].initial = self.instance.total_received
         if self.instance and self.instance.pk and self.instance.customer:
             self.initial["customer_input"] = self.instance.customer.name
         for field_name, field in self.fields.items():

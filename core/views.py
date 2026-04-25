@@ -66,6 +66,7 @@ logger = logging.getLogger(__name__)
 
 AUTO_SALE_INCOME_CATEGORY = "Sale Income (Auto)"
 AUTO_SALE_INCOME_DESCRIPTION = "Auto-linked from paid sale"
+SALE_INITIAL_PAYMENT_CATEGORY = "Sale Initial Payment"
 PAYMENT_ALLOCATION_CATEGORY = "Sales Payment Allocation"
 MANUAL_DUE_SETTLEMENT_CATEGORY = "Manual Due Settlement"
 CREDIT_TOPUP_CATEGORY = "Customer Credit Top-up"
@@ -958,6 +959,49 @@ def _sync_paid_sale_income_entry(sale, income_date=None, force_paid=False):
 		return
 
 	auto_income_qs.delete()
+
+
+def _sync_sale_initial_payment_receipt(sale, paid_amount, receipt_date=None):
+	initial_payment_category = _get_or_create_predefined_category(SALE_INITIAL_PAYMENT_CATEGORY)
+	target_paid_amount = (paid_amount or Decimal("0.00")).quantize(Decimal("0.01"))
+	if target_paid_amount < 0:
+		target_paid_amount = Decimal("0.00")
+	if sale.total_amount > 0 and target_paid_amount > sale.total_amount:
+		target_paid_amount = sale.total_amount
+
+	initial_receipts = Transaction.objects.filter(
+		sale=sale,
+		type=TransactionType.INCOME,
+		category=initial_payment_category,
+	)
+
+	if target_paid_amount <= 0:
+		initial_receipts.delete()
+		return Decimal("0.00")
+
+	description = f"Initial payment for sale {sale.invoice_number}"
+	entry_date = receipt_date or sale.date
+	initial_receipt = initial_receipts.order_by("created_at").first()
+
+	if initial_receipt:
+		initial_receipt.date = entry_date
+		initial_receipt.amount = target_paid_amount
+		initial_receipt.customer = sale.customer
+		initial_receipt.description = description
+		initial_receipt.save(update_fields=["date", "amount", "customer", "description", "updated_at"])
+		initial_receipts.exclude(pk=initial_receipt.pk).delete()
+		return target_paid_amount
+
+	Transaction.objects.create(
+		date=entry_date,
+		amount=target_paid_amount,
+		type=TransactionType.INCOME,
+		category=initial_payment_category,
+		description=description,
+		customer=sale.customer,
+		sale=sale,
+	)
+	return target_paid_amount
 
 
 def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount, payment_method, notes=""):
@@ -2193,14 +2237,21 @@ def sale_create(request):
 		form = SaleForm(request.POST, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
 			sale = form.save(commit=False)
-			sale.paid_amount = sale.total_amount if sale.status == RecordStatus.PAID else Decimal("0.00")
+			initial_paid_amount = form.cleaned_data.get("paid_amount") or Decimal("0.00")
 			if sale.status == RecordStatus.PAID:
 				sale.alert_enabled = False
 			sale.save()
+			if initial_paid_amount > 0:
+				_sync_sale_initial_payment_receipt(sale, initial_paid_amount, receipt_date=sale.date)
+				_sync_sale_after_receipt_change(sale)
+			elif sale.status == RecordStatus.PAID:
+				_sync_paid_sale_income_entry(sale, income_date=sale.date, force_paid=True)
+				_sync_sale_payment_fields(sale)
+			else:
+				_sync_sale_payment_fields(sale)
 			if sale.status == RecordStatus.PENDING and sale.customer_id:
 				_auto_apply_customer_credit_to_sale(sale)
 				sale.refresh_from_db(fields=["status", "paid_amount"])
-			_sync_paid_sale_income_entry(sale)
 			messages.success(request, "Sale created successfully.")
 			return redirect("sale_detail", pk=sale.pk)
 		messages.error(request, "Please fix the errors below.")
@@ -2227,14 +2278,21 @@ def sale_edit(request, pk):
 		form = SaleForm(request.POST, instance=sale, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
 			sale = form.save(commit=False)
+			initial_paid_amount = form.cleaned_data.get("paid_amount") or Decimal("0.00")
 			if sale.status == RecordStatus.PAID:
 				sale.alert_enabled = False
 			sale.save()
+			if initial_paid_amount > 0:
+				_sync_sale_initial_payment_receipt(sale, initial_paid_amount, receipt_date=sale.date)
+				_sync_sale_after_receipt_change(sale)
+			elif sale.status == RecordStatus.PAID:
+				_sync_paid_sale_income_entry(sale, income_date=sale.date, force_paid=True)
+				_sync_sale_payment_fields(sale)
+			else:
+				_sync_sale_payment_fields(sale)
 			if sale.status == RecordStatus.PENDING and sale.customer_id:
 				_auto_apply_customer_credit_to_sale(sale)
 				sale.refresh_from_db(fields=["status", "paid_amount"])
-			_sync_paid_sale_income_entry(sale, force_paid=(sale.status == RecordStatus.PAID))
-			_sync_sale_payment_fields(sale)
 			messages.success(request, "Sale updated successfully.")
 			return redirect("sale_detail", pk=sale.pk)
 		messages.error(request, "Please fix the errors below.")

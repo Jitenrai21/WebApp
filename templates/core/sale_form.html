@@ -97,6 +97,12 @@
                 {% if form.total_amount.errors %}<p class="text-error text-sm mt-1">{{ form.total_amount.errors|join:', ' }}</p>{% endif %}
             </div>
             <div class="form-control">
+                <label class="label" for="id_paid_amount"><span class="label-text">Amount Paid</span></label>
+                {{ form.paid_amount }}
+                <p class="text-xs text-base-content/60 mt-1">Enter any amount received today. The balance can be collected later.</p>
+                {% if form.paid_amount.errors %}<p class="text-error text-sm mt-1">{{ form.paid_amount.errors|join:', ' }}</p>{% endif %}
+            </div>
+            <div class="form-control">
                 <label class="label" for="id_due_date"><span class="label-text">Due Date</span></label>
                 {{ form.due_date }}
                 {% if form.due_date.errors %}<p class="text-error text-sm mt-1">{{ form.due_date.errors|join:', ' }}</p>{% endif %}
