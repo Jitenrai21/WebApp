@@ -16,7 +16,7 @@ def _get_or_create_predefined_category(name):
 
 
 class Command(BaseCommand):
-    help = "Backfill and sync auto income cash entries for paid sales."
+    help = "Backfill and sync auto income Finance Ledger entries for paid sales."
 
     def handle(self, *args, **options):
         created = 0

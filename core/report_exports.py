@@ -21,7 +21,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .bs_date_utils import resolve_ad_date_filters
-from .cash_entry_display import build_customer_payment_display
+from .finance_ledger_display import build_customer_payment_display
 from .models import (
     AlertNotification,
     AlertSource,
@@ -723,7 +723,7 @@ def _build_material_definition(params, model, title, filename_slug, has_unit_typ
     )
 
 
-def _build_cash_entries_definition(params):
+def _build_finance_ledger_definition(params):
     queryset, filters = _filtered_transactions(params)
     query = filters["q"]
     transaction_type = filters["type"]
@@ -839,8 +839,8 @@ def _build_cash_entries_definition(params):
             ]
 
     return ExportDefinition(
-        title="Cash Entries Report",
-        filename_slug="cash_entries_report",
+        title="Finance Ledger Report",
+        filename_slug="finance_ledger_report",
         headers=headers,
         row_factory=row_factory,
         filter_summary=[
@@ -1060,7 +1060,8 @@ def _build_bamboo_definition(params):
 REPORT_BUILDERS = {
     "sales": _build_sales_definition,
     "due_payments": lambda params: _build_sales_definition(params, dues_only=True),
-    "cash_entries": _build_cash_entries_definition,
+    "finance_ledger": _build_finance_ledger_definition,
+    "cash_entries": _build_finance_ledger_definition,
     "jcb_records": _build_jcb_definition,
     "tipper_records": _build_tipper_definition,
     "alerts": _build_alerts_definition,

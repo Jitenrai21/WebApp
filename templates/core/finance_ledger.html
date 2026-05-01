@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Finance Ledger | Purba Paschim Construction and Suppliers Company Flow{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="cf-page-header">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight">Finance Ledger</h1>
+                <p class="cf-page-subtitle">Track and manage all incoming and outgoing financial records.</p>
+            </div>
+            <div class="cf-action-row">
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <button type="button" class="btn btn-outline btn-sm cf-action-export-btn js-open-export-modal" data-export-report="finance_ledger" data-export-title="Export Finance Ledger" data-export-help="Download Finance Ledger entries using the selected filters and date range." data-export-source-form="#finance-ledger-filter-form">Export Report</button>
+                {% endif %}
+                <a href="{% url 'transaction_create' %}" class="btn btn-primary btn-sm cf-action-add-btn">Add Entry</a>
+            </div>
+        </div>
+    </div>
+
+    <form
+        id="finance-ledger-filter-form"
+        method="get"
+        class="cf-filter-panel grid gap-3 md:grid-cols-2 lg:grid-cols-8"
+        hx-get="{% url 'finance_ledger' %}"
+        hx-target="#transaction-table-container"
+        hx-trigger="change, keyup delay:350ms from:input[name='q']"
+        hx-push-url="true"
+    >
+        <label class="form-control lg:col-span-2">
+            <span class="label-text mb-1">Search</span>
+            <input type="text" name="q" value="{{ filters.q }}" class="input input-bordered w-full" placeholder="Category, description, customer" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">From</span>
+            <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_from" value="{{ filters.date_from }}" class="input input-bordered w-full" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">To</span>
+            <input type="{% if calendar_mode_is_bs %}text{% else %}date{% endif %}" name="date_to" value="{{ filters.date_to }}" class="input input-bordered w-full" placeholder="{% if calendar_mode_is_bs %}YYYY-MM-DD (BS){% endif %}" title="Date format: {% if calendar_mode_is_bs %}BS{% else %}AD{% endif %}" />
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Type</span>
+            <select name="type" class="select select-bordered w-full">
+                <option value="">All</option>
+                <option value="income" {% if filters.type == 'income' %}selected{% endif %}>Income</option>
+                <option value="expense" {% if filters.type == 'expense' %}selected{% endif %}>Expense</option>
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Method</span>
+            <select name="payment_method" class="select select-bordered w-full">
+                <option value="">All</option>
+                {% for value, label in payment_method_choices %}
+                <option value="{{ value }}" {% if filters.payment_method == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Category</span>
+            <select name="category" class="select select-bordered w-full">
+                <option value="">All</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if filters.category == category.id|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="form-control">
+            <span class="label-text mb-1">Sort</span>
+            <select name="sort" class="select select-bordered w-full">
+                <option value="-date" {% if filters.sort == '-date' %}selected{% endif %}>Date (Newest)</option>
+                <option value="date" {% if filters.sort == 'date' %}selected{% endif %}>Date (Oldest)</option>
+                <option value="-amount" {% if filters.sort == '-amount' %}selected{% endif %}>Amount (High)</option>
+                <option value="amount" {% if filters.sort == 'amount' %}selected{% endif %}>Amount (Low)</option>
+                <option value="customer" {% if filters.sort == 'customer' %}selected{% endif %}>Customer (A-Z)</option>
+                <option value="-customer" {% if filters.sort == '-customer' %}selected{% endif %}>Customer (Z-A)</option>
+            </select>
+        </label>
+        <div class="md:col-span-2 lg:col-span-8 flex flex-wrap gap-2 pt-1">
+            <button type="submit" class="btn btn-outline btn-sm">Apply Filters</button>
+            <a href="{% url 'finance_ledger' %}" class="btn btn-ghost btn-sm">Reset</a>
+        </div>
+    </form>
+
+    <div id="transaction-table-container">
+        {% include 'core/partials/transaction_table.html' %}
+    </div>
+</div>
+{% endblock %}

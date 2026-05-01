@@ -75,7 +75,7 @@ The app is split into focused modules under the `core` app. Major capabilities:
   - Customer profiles with optional `credit_balance`, `opening_balance`, and a `manual_due_amount` for legacy adjustments.
   - Allocate customer payments to multiple pending invoices with allocation history.
 
-- Transactions / Cash entries
+- Transactions / Finance Ledger
   - Categorized income/expense transactions with optional attachment and links to customers, sales, or records.
   - Predefined categories and free-form categories supported.
 
@@ -246,10 +246,10 @@ The `assets/` folder contains example screen captures used in documentation and 
   ![Login](assets/screencapture-127-0-0-1-9000-accounts-login-2026-04-14-12_46_43.png)
   ![Logout](assets/screencapture-127-0-0-1-9000-accounts-logout-2026-04-14-12_46_36.png)
 
-- Cash Entries
+- Finance Ledger
 
-  ![Cash Entries](assets/screencapture-127-0-0-1-9000-cash-entries-2026-04-14-07_42_49.png)
-  ![Add Cash Entry](assets/screencapture-127-0-0-1-9000-cash-entries-new-2026-04-14-07_42_59.png)
+  ![Finance Ledger](assets/screencapture-127-0-0-1-9000-cash-entries-2026-04-14-07_42_49.png)
+  ![Add Finance Ledger Entry](assets/screencapture-127-0-0-1-9000-cash-entries-new-2026-04-14-07_42_59.png)
 
 - Sales
 

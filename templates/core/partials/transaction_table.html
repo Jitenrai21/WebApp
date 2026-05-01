@@ -1,7 +1,7 @@
 <div class="cf-table-shell">
     {% load core_format %}
     <div class="cf-table-head">
-        <h2 class="font-semibold">Cash Entry Records</h2>
+        <h2 class="font-semibold">Finance Ledger Records</h2>
         <span class="text-xs text-base-content/60">{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
     </div>
     <div class="overflow-x-auto">
@@ -89,7 +89,7 @@
                                       hx-post="{% url 'transaction_delete' transaction.id %}"
                                       hx-target="closest tr"
                                       hx-swap="delete"
-                                      onsubmit="return confirm('Delete this cash entry? This cannot be undone.');"
+                                      onsubmit="return confirm('Delete this finance ledger entry? This cannot be undone.');"
                                       class="inline">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-xs btn-square btn-error btn-outline" title="Delete entry" aria-label="Delete transaction {{ transaction.id }}">
@@ -109,7 +109,7 @@
                                               hx-post="{% url 'transaction_delete' transaction.id %}"
                                               hx-target="closest tr"
                                               hx-swap="delete"
-                                              onsubmit="return confirm('Delete this cash entry? This cannot be undone.');">
+                                              onsubmit="return confirm('Delete this finance ledger entry? This cannot be undone.');">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-xs btn-error btn-outline w-full justify-start">Delete</button>
                                         </form>
@@ -142,8 +142,8 @@
         <div class="join">
             {% if page_obj.has_previous %}
             <a
-                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
-                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                href="{% url 'finance_ledger' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
+                hx-get="{% url 'finance_ledger' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.previous_page_number }}"
                 hx-target="#transaction-table-container"
                 hx-push-url="true"
                 class="btn btn-sm join-item"
@@ -153,8 +153,8 @@
             {% endif %}
             {% if page_obj.has_next %}
             <a
-                href="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
-                hx-get="{% url 'cash_entries' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                href="{% url 'finance_ledger' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
+                hx-get="{% url 'finance_ledger' %}?q={{ filters.q|urlencode }}&type={{ filters.type }}&payment_method={{ filters.payment_method }}&category={{ filters.category }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}&sort={{ filters.sort }}&page={{ page_obj.next_page_number }}"
                 hx-target="#transaction-table-container"
                 hx-push-url="true"
                 class="btn btn-sm join-item"

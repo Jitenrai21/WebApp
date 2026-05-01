@@ -33,7 +33,7 @@ from .calendar_mode import (
 	normalize_calendar_mode,
 )
 from .bs_date_utils import ad_string_to_date, date_to_calendar_input, parse_calendar_date_input, resolve_ad_date_filters
-from .cash_entry_display import build_customer_payment_display
+from .finance_ledger_display import build_customer_payment_display
 from .models import (
 	AlertNotification,
 	AlertSource,
@@ -1105,7 +1105,7 @@ def _sync_sale_initial_payment_receipt(sale, paid_amount, receipt_date=None):
 
 
 def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount, payment_method, notes=""):
-	"""Apply a customer cash entry to oldest pending sales, then move excess to credit."""
+	"""Apply a customer Finance Ledger entry to oldest pending sales, then move excess to credit."""
 	with db_transaction.atomic():
 		customer = Customer.objects.select_for_update().get(pk=customer.pk)
 		pending_sales = list(
@@ -1166,7 +1166,7 @@ def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount
 			if allocation_amount <= 0:
 				continue
 
-			description = f"Auto-allocated cash entry to invoice {sale.invoice_number}"
+			description = f"Auto-allocated Finance Ledger entry to invoice {sale.invoice_number}"
 			if notes:
 				description = f"{description} | {notes}"
 
@@ -1211,7 +1211,7 @@ def _auto_allocate_customer_cash_entry(*, customer, payment_date, payment_amount
 			if allocation_amount <= 0:
 				continue
 
-			description = f"Auto-allocated cash entry to {record.__class__.__name__} sale #{record.id}"
+			description = f"Auto-allocated Finance Ledger entry to {record.__class__.__name__} sale #{record.id}"
 			if notes:
 				description = f"{description} | {notes}"
 
@@ -1725,7 +1725,7 @@ def export_report(request):
 
 
 @login_required
-def cash_entries(request):
+def finance_ledger(request):
 	default_from, default_to = _get_default_date_range()
 
 	query = request.GET.get("q", "").strip()
@@ -1827,7 +1827,13 @@ def cash_entries(request):
 		"transactions": page_obj.object_list,
 		"page_obj": page_obj,
 		"payment_method_choices": PaymentMethod.choices,
-		"categories": TransactionCategory.objects.all().order_by("name"),
+		"categories": TransactionCategory.objects.exclude(
+			name__in=[
+				CREDIT_BALANCE_APPLIED_CATEGORY,
+				PAYMENT_ALLOCATION_CATEGORY,
+				CREDIT_TOPUP_CATEGORY,
+			]
+		).order_by("name"),
 		"filters": {
 			"q": query,
 			"date_from": date_filters["date_from_display"],
@@ -1841,7 +1847,10 @@ def cash_entries(request):
 
 	if request.headers.get("HX-Request"):
 		return render(request, "core/partials/transaction_table.html", context)
-	return render(request, "core/cash_entries.html", context)
+	return render(request, "core/finance_ledger.html", context)
+
+
+cash_entries = finance_ledger
 
 
 @login_required
@@ -1891,7 +1900,7 @@ def transaction_create(request):
 						f" NPR {allocation_result['remaining_payment']} added to customer credit balance."
 					)
 				messages.success(request, summary_text)
-				return redirect("cash_entries")
+				return redirect("finance_ledger")
 
 			transaction_obj = form.save()
 			if transaction_obj.sale_id:
@@ -1899,7 +1908,7 @@ def transaction_create(request):
 				if linked_sale:
 					_sync_sale_after_receipt_change(linked_sale)
 			messages.success(request, "Transaction created successfully.")
-			return redirect("cash_entries")
+			return redirect("finance_ledger")
 		messages.error(request, "Please fix the errors below.")
 	else:
 		form = TransactionForm(**_form_calendar_mode_kwargs(request))
@@ -1909,7 +1918,7 @@ def transaction_create(request):
 		"core/transaction_form.html",
 		{
 			"form": form,
-			"form_title": "Add Cash Entry",
+			"form_title": "Add Finance Ledger Entry",
 			"submit_label": "Create Entry",
 			"has_customers": Customer.objects.exists(),
 		},
@@ -1931,7 +1940,7 @@ def transaction_edit(request, pk):
 				if linked_sale:
 					_sync_sale_after_receipt_change(linked_sale)
 			messages.success(request, "Transaction updated successfully.")
-			return redirect("cash_entries")
+			return redirect("finance_ledger")
 		messages.error(request, "Please fix the errors below.")
 	else:
 		form = TransactionForm(instance=transaction, **_form_calendar_mode_kwargs(request))
@@ -1941,7 +1950,7 @@ def transaction_edit(request, pk):
 		"core/transaction_form.html",
 		{
 			"form": form,
-			"form_title": "Edit Cash Entry",
+			"form_title": "Edit Finance Ledger Entry",
 			"submit_label": "Update Entry",
 			"transaction": transaction,
 			"has_customers": Customer.objects.exists(),
@@ -1954,7 +1963,7 @@ def transaction_delete(request, pk):
 	transaction_obj = get_object_or_404(Transaction, pk=pk)
 
 	if request.method != "POST":
-		return redirect("cash_entries")
+		return redirect("finance_ledger")
 
 	linked_sale_id = transaction_obj.sale_id
 	entry_label = f"{transaction_obj.get_type_display()} entry on {transaction_obj.date}"
@@ -1968,18 +1977,18 @@ def transaction_delete(request, pk):
 	except Exception:
 		if request.headers.get("HX-Request"):
 			return _htmx_feedback_response(
-				"Unable to delete cash entry right now.",
+				"Unable to delete finance ledger entry right now.",
 				level="error",
 				status=400,
 			)
-		messages.error(request, "Unable to delete cash entry right now.")
-		return redirect("cash_entries")
+		messages.error(request, "Unable to delete finance ledger entry right now.")
+		return redirect("finance_ledger")
 
 	if request.headers.get("HX-Request"):
 		return _htmx_feedback_response(f"Deleted {entry_label}.")
 
 	messages.success(request, f"Deleted {entry_label}.")
-	return redirect("cash_entries")
+	return redirect("finance_ledger")
 
 
 @login_required

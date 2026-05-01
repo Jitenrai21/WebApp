@@ -502,14 +502,14 @@ class SalePaymentSyncRegressionTests(TestCase):
 		self.assertEqual(auto_entries.count(), 1)
 		self.assertEqual(auto_entries.first().amount, Decimal("600.00"))
 
-	def test_mark_paid_shortfall_income_entry_appears_in_cash_entries(self):
+	def test_mark_paid_shortfall_income_entry_appears_in_finance_ledger(self):
 		self.client.login(username="sync-user", password="pass1234")
 		sale = self._create_sale("INV-SYNC-008")
 		self._post_cash_income(sale, "250.00")
 
 		self.client.post(reverse("sale_mark_paid", args=[sale.pk]))
 
-		cash_response = self.client.get(reverse("cash_entries"))
+		cash_response = self.client.get(reverse("finance_ledger"))
 		self.assertEqual(cash_response.status_code, 200)
 		self.assertContains(cash_response, "INV-SYNC-008")
 		self.assertContains(cash_response, "Sale Income (Auto)")
@@ -851,7 +851,7 @@ class CustomerDueCreditBehaviorTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["total_payment"], Decimal("0.00"))
 
-	def test_credit_applied_entries_hidden_from_cash_entries(self):
+	def test_credit_applied_entries_hidden_from_finance_ledger(self):
 		self.client.login(username="customer-due", password="pass1234")
 		sale = Sale.objects.get(invoice_number="INV-CREDIT-001")
 
@@ -864,7 +864,7 @@ class CustomerDueCreditBehaviorTests(TestCase):
 			},
 		)
 
-		response = self.client.get(reverse("cash_entries"))
+		response = self.client.get(reverse("finance_ledger"))
 		self.assertEqual(response.status_code, 200)
 		self.assertNotContains(response, "Credit Balance Applied")
 
