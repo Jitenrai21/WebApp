@@ -325,6 +325,26 @@ class DashboardWorkflowTests(TestCase):
 		self.assertIn(1200.0, top_values)
 		self.assertIn(800.0, top_values)
 
+	def test_dashboard_material_income_includes_partial_payments(self):
+		self.client.login(username="dash", password="pass1234")
+		BlocksRecord.objects.create(
+			date="2026-03-04",
+			record_type=BlocksRecordType.SALE,
+			unit_type=BlocksUnitType.SIX_INCH,
+			quantity=10,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("400.00"),
+			due_date="2026-03-10",
+			payment_status=RecordStatus.PENDING,
+		)
+
+		response = self.client.get(
+			reverse("dashboard"),
+			{"date_from": "2026-03-01", "date_to": "2026-03-31"},
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["blocks_summary"]["total_sale_income"], Decimal("400.00"))
+
 
 class SalePaymentSyncRegressionTests(TestCase):
 	def setUp(self):
@@ -620,6 +640,90 @@ class SalePaymentSyncRegressionTests(TestCase):
 		self.customer.refresh_from_db()
 		self.assertEqual(self.customer.credit_balance, Decimal("500.00"))
 		self.assertFalse(Sale.objects.filter(invoice_number="INV-SYNC-011").exists())
+
+
+class MaterialSalesCreditTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="material-user", password="pass1234")
+		self.customer = Customer.objects.create(
+			name="Material Customer",
+			type=CustomerType.REGULAR,
+		)
+
+	def test_blocks_sale_create_auto_applies_credit_balance(self):
+		self.client.login(username="material-user", password="pass1234")
+		self.customer.credit_balance = Decimal("500.00")
+		self.customer.save(update_fields=["credit_balance", "updated_at"])
+
+		response = self.client.post(
+			reverse("blocks_record_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"record_type": BlocksRecordType.SALE,
+				"customer": str(self.customer.pk),
+				"customer_input": self.customer.name,
+				"unit_type": BlocksUnitType.FOUR_INCH,
+				"quantity": "3",
+				"price_per_unit": "100.00",
+				"paid_amount": "0",
+				"due_date": bs_today_date().isoformat(),
+				"notes": "Credit apply test",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = BlocksRecord.objects.get(record_type=BlocksRecordType.SALE, notes="Credit apply test")
+		self.customer.refresh_from_db()
+
+		self.assertEqual(record.payment_status, RecordStatus.PAID)
+		self.assertEqual(record.paid_amount, Decimal("300.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("200.00"))
+
+		credit_category = TransactionCategory.objects.get(name="Credit Balance Applied")
+		receipt = Transaction.objects.get(
+			blocks_record=record,
+			category=credit_category,
+			type=TransactionType.INCOME,
+		)
+		self.assertEqual(receipt.amount, Decimal("300.00"))
+
+	def test_cement_sale_create_auto_applies_credit_balance_partially(self):
+		self.client.login(username="material-user", password="pass1234")
+		self.customer.credit_balance = Decimal("250.00")
+		self.customer.save(update_fields=["credit_balance", "updated_at"])
+
+		response = self.client.post(
+			reverse("cement_record_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"record_type": CementRecordType.SALE,
+				"customer": str(self.customer.pk),
+				"customer_input": self.customer.name,
+				"unit_type": CementUnitType.PPC,
+				"quantity": "7",
+				"price_per_unit": "100.00",
+				"paid_amount": "0",
+				"due_date": bs_today_date().isoformat(),
+				"notes": "Cement credit apply",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = CementRecord.objects.get(record_type=CementRecordType.SALE, notes="Cement credit apply")
+		self.customer.refresh_from_db()
+
+		self.assertEqual(record.payment_status, RecordStatus.PENDING)
+		self.assertEqual(record.paid_amount, Decimal("250.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+
+		credit_category = TransactionCategory.objects.get(name="Credit Balance Applied")
+		receipt = Transaction.objects.get(
+			cement_record=record,
+			category=credit_category,
+			type=TransactionType.INCOME,
+		)
+		self.assertEqual(receipt.amount, Decimal("250.00"))
 
 
 class AlertsWorkflowTests(TestCase):

@@ -793,10 +793,9 @@ def _dashboard_context(request=None, date_from="", date_to=""):
 		total_investment=Coalesce(Sum("investment"), Value(Decimal("0.00"))),
 		total_sale_income=Coalesce(
 			Sum(
-				"sale_income",
+				"paid_amount",
 				filter=Q(
 					record_type=BlocksRecordType.SALE,
-					payment_status=RecordStatus.PAID,
 				),
 			),
 			Value(Decimal("0.00")),
@@ -854,10 +853,9 @@ def _dashboard_context(request=None, date_from="", date_to=""):
 		total_investment=Coalesce(Sum("investment"), Value(Decimal("0.00"))),
 		total_sale_income=Coalesce(
 			Sum(
-				"sale_income",
+				"paid_amount",
 				filter=Q(
 					record_type=CementRecordType.SALE,
-					payment_status=RecordStatus.PAID,
 				),
 			),
 			Value(Decimal("0.00")),
@@ -907,10 +905,9 @@ def _dashboard_context(request=None, date_from="", date_to=""):
 		total_investment=Coalesce(Sum("investment"), Value(Decimal("0.00"))),
 		total_sale_income=Coalesce(
 			Sum(
-				"sale_income",
+				"paid_amount",
 				filter=Q(
 					record_type=BambooRecordType.SALE,
-					payment_status=RecordStatus.PAID,
 				),
 			),
 			Value(Decimal("0.00")),
@@ -1302,6 +1299,51 @@ def _auto_apply_customer_credit_to_sale(sale, payment_date=None):
 		return applied_amount
 
 
+def _auto_apply_customer_credit_to_material(record, payment_date=None):
+	"""Use available customer credit to settle a pending material sale immediately."""
+	if not record.is_sale or not record.customer_id or record.payment_status != RecordStatus.PENDING:
+		return Decimal("0.00")
+
+	with db_transaction.atomic():
+		customer = Customer.objects.select_for_update().get(pk=record.customer_id)
+		record = record.__class__.objects.select_for_update().get(pk=record.pk)
+
+		if not record.is_sale or record.payment_status != RecordStatus.PENDING:
+			return Decimal("0.00")
+
+		record_due = record.pending_amount
+		if customer.credit_balance <= 0 or record_due <= 0:
+			return Decimal("0.00")
+
+		applied_amount = min(customer.credit_balance, record_due)
+		if applied_amount <= 0:
+			return Decimal("0.00")
+
+		if isinstance(record, BlocksRecord):
+			module_label = "blocks"
+		elif isinstance(record, CementRecord):
+			module_label = "cement"
+		else:
+			module_label = "bamboo"
+
+		_create_material_allocation_transaction(
+			record,
+			customer,
+			payment_date or record.date,
+			PaymentMethod.CASH,
+			f"Auto-applied from customer credit balance to {module_label} sale #{record.id}",
+			applied_amount,
+			category_name=CREDIT_BALANCE_APPLIED_CATEGORY,
+		)
+
+		customer.credit_balance = customer.credit_balance - applied_amount
+		customer.save(update_fields=["credit_balance", "updated_at"])
+
+		_sync_material_sale_payment_fields(record)
+		_reconcile_material_sale_income_transaction(record)
+		return applied_amount
+
+
 def _sync_sale_after_receipt_change(sale):
 	# Keep sale payment fields and auto-income mirror aligned after receipt mutations.
 	_sync_sale_payment_fields(sale)
@@ -1344,7 +1386,19 @@ def _sync_material_sale_payment_fields(record):
 	)["total"]
 
 	record.paid_amount = total_received
-	record.save(update_fields=["paid_amount", "pending_amount", "payment_status", "sale_income", "bs_date", "updated_at"])
+	record.save(
+		update_fields=[
+			"paid_amount",
+			"pending_amount",
+			"payment_status",
+			"sale_income",
+			"alert_enabled",
+			"due_date",
+			"bs_date",
+			"bs_due_date",
+			"updated_at",
+		]
+	)
 
 
 def _reconcile_material_sale_income_transaction(record):
@@ -3317,6 +3371,7 @@ def blocks_record_create(request):
 			# Only sale records create linked global income transactions.
 			if blocks_record.is_sale:
 				_reconcile_material_sale_income_transaction(blocks_record)
+				_auto_apply_customer_credit_to_material(blocks_record)
 			
 			messages.success(request, "Blocks record created successfully.")
 			return redirect("blocks_records")
@@ -3353,6 +3408,7 @@ def blocks_record_edit(request, pk):
 			).delete()
 			if blocks_record.is_sale:
 				_reconcile_material_sale_income_transaction(blocks_record)
+				_auto_apply_customer_credit_to_material(blocks_record)
 			
 			messages.success(request, "Blocks record updated successfully.")
 			return redirect("blocks_records")
@@ -3518,6 +3574,7 @@ def cement_record_create(request):
 			cement_record = form.save()
 			if cement_record.is_sale:
 				_reconcile_material_sale_income_transaction(cement_record)
+				_auto_apply_customer_credit_to_material(cement_record)
 			messages.success(request, "Cement record created successfully.")
 			return redirect("cement_records")
 		messages.error(request, "Please fix the errors below.")
@@ -3551,6 +3608,7 @@ def cement_record_edit(request, pk):
 			).delete()
 			if cement_record.is_sale:
 				_reconcile_material_sale_income_transaction(cement_record)
+				_auto_apply_customer_credit_to_material(cement_record)
 			messages.success(request, "Cement record updated successfully.")
 			return redirect("cement_records")
 		messages.error(request, "Please fix the errors below.")
@@ -3709,6 +3767,7 @@ def bamboo_record_create(request):
 			bamboo_record = form.save()
 			if bamboo_record.is_sale:
 				_reconcile_material_sale_income_transaction(bamboo_record)
+				_auto_apply_customer_credit_to_material(bamboo_record)
 			messages.success(request, "Bamboo record created successfully.")
 			return redirect("bamboo_records")
 		messages.error(request, "Please fix the errors below.")
@@ -3742,6 +3801,7 @@ def bamboo_record_edit(request, pk):
 			).delete()
 			if bamboo_record.is_sale:
 				_reconcile_material_sale_income_transaction(bamboo_record)
+				_auto_apply_customer_credit_to_material(bamboo_record)
 			messages.success(request, "Bamboo record updated successfully.")
 			return redirect("bamboo_records")
 		messages.error(request, "Please fix the errors below.")

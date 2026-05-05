@@ -1,7 +1,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
-from .models import PaymentMethod
+from .models import PaymentMethod, Transaction
 
 
 def _money(value):
@@ -10,17 +10,39 @@ def _money(value):
 
 
 def summarize_customer_payment(customer_payment):
-	allocated_total = Decimal("0.00")
+	# Use stored allocated/unallocated amounts from the payment record for accuracy.
+	allocated_total = customer_payment.allocated_amount or Decimal("0.00")
+	unallocated_total = customer_payment.unallocated_amount or Decimal("0.00")
 	allocation_lines = []
 
-	for allocation in customer_payment.allocations.select_related("sale").all():
-		allocated_total += allocation.amount or Decimal("0.00")
+	# First include explicit PaymentAllocation lines (invoice allocations)
+	txn_ids = set()
+	for allocation in customer_payment.allocations.select_related("sale", "transaction").all():
+		amt = allocation.amount or Decimal("0.00")
 		sale_label = allocation.sale.invoice_number if allocation.sale_id and allocation.sale else f"Sale #{allocation.sale_id or '-'}"
-		allocation_lines.append(f"{sale_label} (NPR {_money(allocation.amount)})")
+		allocation_lines.append(f"{sale_label} (NPR {_money(amt)})")
+		if allocation.transaction_id:
+			txn_ids.add(allocation.transaction_id)
 
-	unallocated_total = customer_payment.amount - allocated_total
-	if unallocated_total < 0:
-		unallocated_total = Decimal("0.00")
+	# Also include material allocations which are created as Transactions linked to the CustomerPayment
+	# (they carry a description tag like "[Customer Payment #<id>]"), but do not have PaymentAllocation rows.
+	extra_txns = Transaction.objects.filter(description__contains=f"[Customer Payment #{customer_payment.id}]")
+	for txn in extra_txns.exclude(pk__in=txn_ids):
+		amt = txn.amount or Decimal("0.00")
+		# Prefer a human-friendly label depending on which record field is set
+		if txn.sale_id and txn.sale:
+			label = txn.sale.invoice_number
+		elif txn.blocks_record_id:
+			label = f"Blocks sale #{txn.blocks_record_id}"
+		elif txn.cement_record_id:
+			label = f"Cement sale #{txn.cement_record_id}"
+		elif txn.bamboo_record_id:
+			label = f"Bamboo sale #{txn.bamboo_record_id}"
+		else:
+			label = f"Txn #{txn.id}"
+
+		allocation_lines.append(f"{label} (NPR {_money(amt)})")
+		txn_ids.add(txn.pk)
 
 	parts = []
 	if allocated_total > 0:

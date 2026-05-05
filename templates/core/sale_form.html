@@ -289,10 +289,21 @@
 
     (function initSaleStatusDueDateLogic() {
         const statusField = document.getElementById('id_status');
+        const dateField = document.getElementById('id_date');
         const dueDateField = document.getElementById('id_due_date');
 
         if (!statusField || !dueDateField) {
             return;
+        }
+
+        function getTodayDateValue() {
+            if (dateField && dateField.value) {
+                return dateField.value;
+            }
+            const today = new Date();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${today.getFullYear()}-${month}-${day}`;
         }
 
         function syncDueDateState() {
@@ -300,6 +311,8 @@
             dueDateField.disabled = isPaid;
             if (isPaid) {
                 dueDateField.value = '';
+            } else if (!dueDateField.value) {
+                dueDateField.value = getTodayDateValue();
             }
         }
 

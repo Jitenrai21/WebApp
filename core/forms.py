@@ -74,11 +74,16 @@ def _configure_form_date_fields(form, field_names):
 
             if not form.is_bound:
                 ad_value = form.initial.get(field_name)
+                if ad_value is None:
+                    ad_value = field.initial
                 if ad_value is None and getattr(form, "instance", None) is not None:
                     ad_value = getattr(form.instance, field_name, None)
+                if callable(ad_value):
+                    ad_value = ad_value()
                 bs_value = ad_to_bs_string(ad_value)
                 if bs_value:
                     form.initial[field_name] = bs_value
+                    field.initial = bs_value
         else:
             widget.input_type = "date"
             widget.attrs["type"] = "date"
