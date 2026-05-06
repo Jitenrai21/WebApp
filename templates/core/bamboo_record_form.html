@@ -37,16 +37,19 @@
             </div>
         </div>
 
-        <div class="cf-filter-panel p-4 space-y-3">
-            <h2 class="font-semibold">Investment</h2>
-            <p class="text-sm text-base-content/70">For investment records, enter the amount spent on bamboo procurement or processing.</p>
-            <div class="grid gap-4 md:grid-cols-2">
-                <div class="form-control">
-                    <label class="label" for="id_investment"><span class="label-text">Investment Amount (NPR)</span></label>
-                    {{ form.investment }}
-                    {% if form.investment.errors %}<p class="text-error text-sm mt-1">{{ form.investment.errors|join:', ' }}</p>{% endif %}
-                    <p class="text-xs text-base-content/60 mt-1">Required for Investment records.</p>
-                </div>
+        <div id="customer-panel" class="cf-filter-panel p-4 space-y-3 hidden">
+            <h2 class="font-semibold">Customer Assignment</h2>
+            <p class="text-sm text-base-content/70">Optional for sale records. Choose or type a customer name before entering sale details.</p>
+            <div id="customer-field" class="form-control md:col-span-2 hidden">
+                <label class="label" for="id_customer_input"><span class="label-text">Customer Assignment (Optional)</span></label>
+                {{ form.customer_input }}
+                <datalist id="bamboo-customer-options">
+                    {% for customer in form.fields.customer.queryset %}
+                    <option value="{{ customer.name }}"></option>
+                    {% endfor %}
+                </datalist>
+                {% if form.customer_input.errors %}<p class="text-error text-sm mt-1">{{ form.customer_input.errors|join:', ' }}</p>{% endif %}
+                <p class="text-xs text-base-content/60 mt-1">Optional for sale records. Start typing to see matches, or enter a custom customer name.</p>
             </div>
         </div>
 
@@ -96,16 +99,18 @@
                     </label>
                     {% if form.alert_enabled.errors %}<p class="text-error text-sm mt-1">{{ form.alert_enabled.errors|join:', ' }}</p>{% endif %}
                 </div>
-                <div id="customer-field" class="form-control md:col-span-2 hidden">
-                    <label class="label" for="id_customer_input"><span class="label-text">Customer Assignment (Optional)</span></label>
-                    {{ form.customer_input }}
-                    <datalist id="bamboo-customer-options">
-                        {% for customer in form.fields.customer.queryset %}
-                        <option value="{{ customer.name }}"></option>
-                        {% endfor %}
-                    </datalist>
-                    {% if form.customer_input.errors %}<p class="text-error text-sm mt-1">{{ form.customer_input.errors|join:', ' }}</p>{% endif %}
-                    <p class="text-xs text-base-content/60 mt-1">Optional for sale records. Start typing to see matches, or enter a custom customer name.</p>
+            </div>
+        </div>
+
+        <div class="cf-filter-panel p-4 space-y-3">
+            <h2 class="font-semibold">Investment</h2>
+            <p class="text-sm text-base-content/70">For investment records, enter the amount spent on bamboo procurement or processing.</p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="form-control">
+                    <label class="label" for="id_investment"><span class="label-text">Investment Amount (NPR)</span></label>
+                    {{ form.investment }}
+                    {% if form.investment.errors %}<p class="text-error text-sm mt-1">{{ form.investment.errors|join:', ' }}</p>{% endif %}
+                    <p class="text-xs text-base-content/60 mt-1">Required for Investment records.</p>
                 </div>
             </div>
         </div>
@@ -126,6 +131,7 @@
 
 <script>
     const recordTypeInput = document.getElementById('id_record_type');
+    const customerPanel = document.getElementById('customer-panel');
     const paymentStatusField = document.getElementById('payment-status-field');
     const paymentStatusInput = document.getElementById('id_payment_status');
     const customerField = document.getElementById('customer-field');
@@ -171,6 +177,7 @@
         }
         const isSale = recordTypeInput.value === 'sale';
         const isPaid = paymentStatusInput.value === 'paid';
+        customerPanel.classList.toggle('hidden', !isSale);
         paymentStatusField.classList.toggle('hidden', !isSale);
         customerField.classList.toggle('hidden', !isSale);
         paidAmountField.classList.toggle('hidden', !isSale);

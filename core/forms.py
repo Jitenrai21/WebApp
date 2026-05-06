@@ -635,17 +635,17 @@ class BlocksRecordForm(forms.ModelForm):
         model = BlocksRecord
         fields = [
             "date",
-            "record_type",
             "customer",
+            "record_type",
             "payment_status",
             "alert_enabled",
-            "investment",
             "unit_type",
             "quantity",
             "price_per_unit",
             "sale_income",
             "paid_amount",
             "due_date",
+            "investment",
             "notes",
         ]
         widgets = {
@@ -785,17 +785,17 @@ class CementRecordForm(forms.ModelForm):
         model = CementRecord
         fields = [
             "date",
-            "record_type",
             "customer",
+            "record_type",
             "payment_status",
             "alert_enabled",
-            "investment",
             "unit_type",
             "quantity",
             "price_per_unit",
             "sale_income",
             "paid_amount",
             "due_date",
+            "investment",
             "notes",
         ]
         widgets = {
@@ -930,16 +930,16 @@ class BambooRecordForm(forms.ModelForm):
         model = BambooRecord
         fields = [
             "date",
-            "record_type",
             "customer",
+            "record_type",
             "payment_status",
             "alert_enabled",
-            "investment",
             "quantity",
             "price_per_unit",
             "sale_income",
             "paid_amount",
             "due_date",
+            "investment",
             "notes",
         ]
         widgets = {

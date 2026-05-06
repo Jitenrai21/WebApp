@@ -11,13 +11,13 @@
                     <th>Date</th>
                     <th>Record Type</th>
                     <th>Customer</th>
-                    <th>Payment Status</th>
                     <th>Unit Type</th>
                     <th>Quantity</th>
-                    <th>Investment</th>
                     <th>Sale Income</th>
                     <th>Paid</th>
                     <th>Pending</th>
+                    <th>Payment Status</th>
+                    <th>Investment</th>
                     <th>Notes</th>
                     <th class="text-center whitespace-nowrap">Alert</th>
                     <th class="text-right whitespace-nowrap">Actions</th>
@@ -52,24 +52,8 @@
                             <span class="text-base-content/50">-</span>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if record.record_type == 'sale' %}
-                            <span class="badge badge-sm {% if record.payment_status == 'paid' %}badge-success{% else %}badge-warning{% endif %} badge-outline whitespace-nowrap">
-                                {{ record.get_payment_status_display }}
-                            </span>
-                        {% else %}
-                            <span class="text-base-content/50">-</span>
-                        {% endif %}
-                    </td>
                     <td>{{ record.get_unit_type_display|default:"-" }}</td>
                     <td>{{ record.quantity|default:"-" }}</td>
-                    <td>
-                        {% if record.investment %}
-                            <span class="text-error">NPR {{ record.investment|npr_amount }}</span>
-                        {% else %}
-                            <span class="text-base-content/50">-</span>
-                        {% endif %}
-                    </td>
                     <td>
                         {% if record.sale_income %}
                             <span class="text-success">NPR {{ record.sale_income|npr_amount }}</span>
@@ -87,6 +71,22 @@
                     <td>
                         {% if record.record_type == 'sale' %}
                             <span class="{% if record.pending_amount > 0 %}text-error{% else %}text-success{% endif %}">NPR {{ record.pending_amount|npr_amount }}</span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.record_type == 'sale' %}
+                            <span class="badge badge-sm {% if record.payment_status == 'paid' %}badge-success{% else %}badge-warning{% endif %} badge-outline whitespace-nowrap">
+                                {{ record.get_payment_status_display }}
+                            </span>
+                        {% else %}
+                            <span class="text-base-content/50">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if record.investment %}
+                            <span class="text-error">NPR {{ record.investment|npr_amount }}</span>
                         {% else %}
                             <span class="text-base-content/50">-</span>
                         {% endif %}
