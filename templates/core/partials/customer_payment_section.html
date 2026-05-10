@@ -100,7 +100,16 @@
                             <span class="font-semibold">NPR {{ row.pending_amount|npr_amount }}</span>
                         </label>
                         {% endfor %}
-                        {% if not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}
+                        {% for row in pending_jcb_rows %}
+                        <label class="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 text-sm hover:bg-base-200/20 transition-colors">
+                            <span>
+                                <input type="checkbox" name="jcb_ids" value="{{ row.record.id }}" class="checkbox checkbox-primary border-base-300 scale-105">
+                            </span>
+                            <span>JCB Record #{{ row.record.id }} | {{ row.record.date|calendar_date:request }} | {{ row.descriptor }}</span>
+                            <span class="font-semibold">NPR {{ row.pending_amount|npr_amount }}</span>
+                        </label>
+                        {% endfor %}
+                        {% if not pending_sales_rows and not pending_material_rows and not pending_jcb_rows and manual_due_amount <= 0 %}
                         <p class="p-4 text-sm opacity-70">No pending sales or manual due available for allocation.</p>
                         {% endif %}
                         </div>
@@ -115,11 +124,11 @@
                         value="credit"
                         formnovalidate
                         class="btn btn-outline"
-                        {% if customer.credit_balance <= 0 or not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}disabled{% endif %}
+                        {% if customer.credit_balance <= 0 or not pending_sales_rows and not pending_material_rows and not pending_jcb_rows and manual_due_amount <= 0 %}disabled{% endif %}
                     >
                         Apply Credit Balance
                     </button>
-                    <button type="submit" name="allocation_mode" value="cash" class="btn btn-primary" {% if not pending_sales_rows and not pending_material_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
+                    <button type="submit" name="allocation_mode" value="cash" class="btn btn-primary" {% if not pending_sales_rows and not pending_material_rows and not pending_jcb_rows and manual_due_amount <= 0 %}disabled{% endif %}>Allocate Payment</button>
                 </div>
             </form>
                 {% if customer_payment_history %}

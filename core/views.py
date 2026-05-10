@@ -263,6 +263,111 @@ def _dashboard_sales_amount_queryset(date_from="", date_to=""):
 	return sales_queryset
 
 
+def _dashboard_module_sales_queryset(model, sale_record_type, date_from="", date_to=""):
+	queryset = model.objects.select_related("customer").filter(record_type=sale_record_type)
+	if date_from:
+		queryset = queryset.filter(date__gte=date_from)
+	if date_to:
+		queryset = queryset.filter(date__lte=date_to)
+	return queryset
+
+
+def _dashboard_combined_sales_total(date_from="", date_to=""):
+	direct_total = _dashboard_sales_amount_queryset(date_from, date_to).aggregate(
+		total=Coalesce(Sum("total_amount"), Value(Decimal("0.00")))
+	)["total"]
+	module_total = (
+		_dashboard_module_sales_queryset(BlocksRecord, BlocksRecordType.SALE, date_from, date_to).aggregate(
+			total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))
+		)["total"]
+		+ _dashboard_module_sales_queryset(CementRecord, CementRecordType.SALE, date_from, date_to).aggregate(
+			total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))
+		)["total"]
+		+ _dashboard_module_sales_queryset(BambooRecord, BambooRecordType.SALE, date_from, date_to).aggregate(
+			total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))
+		)["total"]
+	)
+	return direct_total + module_total
+
+
+def _dashboard_combined_sales_trend(date_from="", date_to=""):
+	trend_totals = {}
+
+	def add_rows(rows, amount_field):
+		for row in rows:
+			trend_totals[row["date"]] = trend_totals.get(row["date"], Decimal("0.00")) + (row[amount_field] or Decimal("0.00"))
+
+	add_rows(
+		_dashboard_sales_amount_queryset(date_from, date_to).values("date").annotate(total=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))))
+		,
+		"total",
+	)
+	add_rows(
+		_dashboard_module_sales_queryset(BlocksRecord, BlocksRecordType.SALE, date_from, date_to)
+		.values("date")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))),
+		"total",
+	)
+	add_rows(
+		_dashboard_module_sales_queryset(CementRecord, CementRecordType.SALE, date_from, date_to)
+		.values("date")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))),
+		"total",
+	)
+	add_rows(
+		_dashboard_module_sales_queryset(BambooRecord, BambooRecordType.SALE, date_from, date_to)
+		.values("date")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00")))),
+		"total",
+	)
+
+	combined_rows = sorted(trend_totals.items(), key=lambda item: item[0])
+	return [row[0] for row in combined_rows], [row[1] for row in combined_rows]
+
+
+def _dashboard_combined_top_customer_rows(date_from="", date_to=""):
+	customer_totals = {}
+
+	def add_customer_rows(rows):
+		for row in rows:
+			customer_id = row["customer_id"]
+			if customer_id is None:
+				continue
+			if customer_id not in customer_totals:
+				customer_totals[customer_id] = {
+					"customer_id": customer_id,
+					"customer__name": row["customer__name"],
+					"total": Decimal("0.00"),
+				}
+			customer_totals[customer_id]["total"] += row["total"] or Decimal("0.00")
+
+	add_customer_rows(
+		_dashboard_sales_amount_queryset(date_from, date_to)
+		.values("customer_id", "customer__name")
+		.annotate(total=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))))
+	)
+	add_customer_rows(
+		_dashboard_module_sales_queryset(BlocksRecord, BlocksRecordType.SALE, date_from, date_to)
+		.values("customer_id", "customer__name")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00"))))
+	)
+	add_customer_rows(
+		_dashboard_module_sales_queryset(CementRecord, CementRecordType.SALE, date_from, date_to)
+		.values("customer_id", "customer__name")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00"))))
+	)
+	add_customer_rows(
+		_dashboard_module_sales_queryset(BambooRecord, BambooRecordType.SALE, date_from, date_to)
+		.values("customer_id", "customer__name")
+		.annotate(total=Coalesce(Sum("sale_income"), Value(Decimal("0.00"))))
+	)
+
+	return sorted(
+		customer_totals.values(),
+		key=lambda row: (-row["total"], row["customer__name"], row["customer_id"]),
+	)
+
+
 def _sales_alert_queryset():
 	return (
 		Sale.objects.select_related("customer")
@@ -287,6 +392,10 @@ def _material_alert_queryset(model, sale_record_type):
 		alert_enabled=True,
 		due_date__isnull=False,
 	)
+
+
+def _overdue_material_queryset(model, sale_record_type, today):
+	return _material_alert_queryset(model, sale_record_type).filter(due_date__lt=today, pending_amount__gt=0)
 
 
 def _append_material_alert_items(alert_items, queryset, source, title_prefix, detail_url_name, alert_type, today, upcoming_end, date_from="", date_to="", customer_id=""):
@@ -541,9 +650,9 @@ def _dashboard_context(request=None, date_from="", date_to=""):
 		cement_queryset = cement_queryset.filter(date__lte=date_to)
 		bamboo_queryset = bamboo_queryset.filter(date__lte=date_to)
 
-	kpi_sales = sales_amount_queryset.aggregate(
-		total_sales=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))),
-	)
+	kpi_sales = {
+		"total_sales": _dashboard_combined_sales_total(date_from, date_to),
+	}
 	sales_rows = list(sales_queryset)
 	received_total = sum((sale.received_total for sale in sales_rows), Decimal("0.00"))
 	kpi_income_expense = transactions_queryset.aggregate(
@@ -634,36 +743,32 @@ def _dashboard_context(request=None, date_from="", date_to=""):
 			and sale.total_amount > sale.received_total
 		)
 	]
-	overdue_count = len(overdue_sales)
+	overdue_material_rows = list(_overdue_material_queryset(BlocksRecord, BlocksRecordType.SALE, today))
+	overdue_material_rows += list(_overdue_material_queryset(CementRecord, CementRecordType.SALE, today))
+	overdue_material_rows += list(_overdue_material_queryset(BambooRecord, BambooRecordType.SALE, today))
+
+	overdue_count = len(overdue_sales) + len(overdue_material_rows)
 	overdue_amount = sum(
 		((sale.total_amount - sale.received_total) for sale in overdue_sales),
 		Decimal("0.00"),
 	)
+	overdue_amount += sum((record.pending_amount for record in overdue_material_rows), Decimal("0.00"))
 
 	recent_sales = sales_amount_queryset.order_by("-date", "-created_at")[:6]
 	recent_transactions = transactions_queryset.order_by("-date", "-created_at")[:6]
 	recent_customers = Customer.objects.order_by("-created_at")[:6]
 
-	trend_rows = (
-		sales_amount_queryset.values("date")
-		.annotate(total=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))))
-		.order_by("date")
-	)
 	calendar_mode = get_calendar_mode(request)
-	sales_trend_labels = [date_to_calendar_input(row["date"], calendar_mode) for row in trend_rows]
-	sales_trend_values = [float(row["total"]) for row in trend_rows]
+	combined_sales_trend_dates, combined_sales_trend_values = _dashboard_combined_sales_trend(date_from, date_to)
+	sales_trend_labels = [date_to_calendar_input(row_date, calendar_mode) for row_date in combined_sales_trend_dates]
+	sales_trend_values = [float(total) for total in combined_sales_trend_values]
 
 	income_vs_expense_values = [
 		float(kpi_income_expense["total_income"]),
 		float(kpi_income_expense["total_expenses"]),
 	]
 
-	top_customer_rows = (
-		sales_amount_queryset.filter(customer__isnull=False)
-		.values("customer_id", "customer__name")
-		.annotate(total=Coalesce(Sum("total_amount"), Value(Decimal("0.00"))))
-		.order_by("-total", "customer__name", "customer_id")[:10]
-	)
+	top_customer_rows = _dashboard_combined_top_customer_rows(date_from, date_to)[:10]
 	top_customer_labels = [row["customer__name"] for row in top_customer_rows]
 	top_customer_values = [float(row["total"]) for row in top_customer_rows]
 
@@ -1347,6 +1452,43 @@ def _auto_apply_customer_credit_to_material(record, payment_date=None):
 		return applied_amount
 
 
+def _auto_apply_customer_credit_to_jcb(record, payment_date=None):
+	"""Use available customer credit to settle a pending JCB record immediately."""
+	if not record.customer_id or record.pending_amount <= 0:
+		return Decimal("0.00")
+
+	with db_transaction.atomic():
+		customer = Customer.objects.select_for_update().get(pk=record.customer_id)
+		record = JCBRecord.objects.select_for_update().get(pk=record.pk)
+
+		record_due = record.pending_amount
+		if customer.credit_balance <= 0 or record_due <= 0:
+			return Decimal("0.00")
+
+		applied_amount = min(customer.credit_balance, record_due)
+		if applied_amount <= 0:
+			return Decimal("0.00")
+
+		Transaction.objects.create(
+			date=payment_date or record.date,
+			amount=applied_amount,
+			type=TransactionType.INCOME,
+			payment_method=PaymentMethod.CASH,
+			category=_get_or_create_predefined_category(CREDIT_BALANCE_APPLIED_CATEGORY),
+			description=f"Auto-applied from customer credit balance to jcb record #{record.id}",
+			customer=customer,
+			jcb_record=record,
+		)
+
+		customer.credit_balance = customer.credit_balance - applied_amount
+		customer.save(update_fields=["credit_balance", "updated_at"])
+
+		record.paid_amount = (record.paid_amount or Decimal("0.00")) + applied_amount
+		record.save(update_fields=["paid_amount", "pending_amount", "status", "updated_at"])
+		_sync_jcb_transactions(record)
+		return applied_amount
+
+
 def _sync_sale_after_receipt_change(sale):
 	# Keep sale payment fields and auto-income mirror aligned after receipt mutations.
 	_sync_sale_payment_fields(sale)
@@ -1493,12 +1635,22 @@ def _sync_jcb_transactions(jcb_record):
 		type=TransactionType.INCOME,
 		category=jcb_income_category,
 	)
+	non_auto_total = Transaction.objects.filter(
+		jcb_record=jcb_record,
+		type=TransactionType.INCOME,
+	).exclude(category=jcb_income_category).aggregate(
+		total=Coalesce(Sum("amount"), Value(Decimal("0.00")))
+	)["total"]
 
 	paid_amount = Decimal(str(jcb_record.paid_amount or Decimal("0.00"))).quantize(Decimal("0.01"))
+	auto_income_amount = paid_amount - non_auto_total
+	if auto_income_amount < 0:
+		auto_income_amount = Decimal("0.00")
+	auto_income_amount = auto_income_amount.quantize(Decimal("0.01"))
 
-	if paid_amount > 0:
+	if auto_income_amount > 0:
 		income_txn = income_qs.order_by("created_at").first()
-		income_amount = paid_amount
+		income_amount = auto_income_amount
 		if income_txn:
 			income_txn.date = jcb_record.date
 			income_txn.amount = income_amount
@@ -1774,6 +1926,7 @@ def _customer_payment_context(customer, request):
 		"pending_sales": pending_sales,
 		"pending_sales_rows": pending_sales_rows,
 		"pending_material_rows": pending_material_rows,
+		"pending_jcb_rows": pending_jcb_rows,
 		"pending_material_total": pending_material_total,
 		"pending_item_count": pending_item_count,
 		"pending_payment_rows": pending_payment_rows,
@@ -2203,6 +2356,8 @@ def jcb_record_create(request):
 		if form.is_valid():
 			jcb_record = form.save()
 			_sync_jcb_transactions(jcb_record)
+			if jcb_record.customer_id and jcb_record.pending_amount > 0:
+				_auto_apply_customer_credit_to_jcb(jcb_record)
 			messages.success(request, "JCB record created successfully.")
 			return redirect("jcb_records")
 		messages.error(request, "Please fix the errors below.")
@@ -2229,6 +2384,8 @@ def jcb_record_edit(request, pk):
 		if form.is_valid():
 			jcb_record = form.save()
 			_sync_jcb_transactions(jcb_record)
+			if jcb_record.customer_id and jcb_record.pending_amount > 0:
+				_auto_apply_customer_credit_to_jcb(jcb_record)
 			messages.success(request, "JCB record updated successfully.")
 			return redirect("jcb_records")
 		messages.error(request, "Please fix the errors below.")
@@ -2856,6 +3013,7 @@ def customer_allocate_payment(request, pk):
 	blocks_sale_ids = request.POST.getlist("blocks_sale_ids")
 	cement_sale_ids = request.POST.getlist("cement_sale_ids")
 	bamboo_sale_ids = request.POST.getlist("bamboo_sale_ids")
+	jcb_ids = request.POST.getlist("jcb_ids")
 	notes = request.POST.get("notes", "").strip()
 	allocate_manual_due = request.POST.get("allocate_manual_due") == "on"
 
@@ -2882,7 +3040,7 @@ def customer_allocate_payment(request, pk):
 		messages.error(request, message)
 		return redirect("customer_detail", pk=customer.pk)
 
-	if not sale_ids and not blocks_sale_ids and not cement_sale_ids and not bamboo_sale_ids and not allocate_manual_due:
+	if not sale_ids and not blocks_sale_ids and not cement_sale_ids and not bamboo_sale_ids and not jcb_ids and not allocate_manual_due:
 		message = "Select at least one pending sale or manual due to allocate payment."
 		if request.headers.get("HX-Request"):
 			context = {"customer": customer, "allocation_error": message}
@@ -2936,8 +3094,17 @@ def customer_allocate_payment(request, pk):
 			)
 			.order_by("date", "created_at", "id")
 		)
+		selected_jcb_records = list(
+			JCBRecord.objects.select_for_update()
+			.filter(
+				customer=customer,
+				id__in=jcb_ids,
+				pending_amount__gt=0,
+			)
+			.order_by("date", "created_at", "id")
+		)
 
-		if not selected_sales and not selected_blocks_sales and not selected_cement_sales and not selected_bamboo_sales and not allocate_manual_due:
+		if not selected_sales and not selected_blocks_sales and not selected_cement_sales and not selected_bamboo_sales and not selected_jcb_records and not allocate_manual_due:
 			message = "No eligible pending sales or manual due found for allocation."
 			if request.headers.get("HX-Request"):
 				context = {"customer": customer, "allocation_error": message}
@@ -3018,6 +3185,7 @@ def customer_allocate_payment(request, pk):
 			("blocks", selected_blocks_sales),
 			("cement", selected_cement_sales),
 			("bamboo", selected_bamboo_sales),
+			("jcb", selected_jcb_records),
 		]:
 			for record in module_records:
 				if remaining_payment <= 0:
@@ -3037,25 +3205,49 @@ def customer_allocate_payment(request, pk):
 
 				transaction_category = CREDIT_BALANCE_APPLIED_CATEGORY if use_credit_balance else PAYMENT_ALLOCATION_CATEGORY
 				payment_method_to_use = PaymentMethod.CASH if use_credit_balance else payment_method
-				_create_material_allocation_transaction(
-					record,
-					customer,
-					payment_date,
-					payment_method_to_use,
-					description,
-					allocation_amount,
-					category_name=transaction_category,
-					customer_payment=customer_payment,
-				)
+				if module_name == "jcb":
+					Transaction.objects.create(
+						date=payment_date,
+						amount=allocation_amount,
+						type=TransactionType.INCOME,
+						payment_method=payment_method_to_use,
+						category=_get_or_create_predefined_category(transaction_category),
+						description=description,
+						customer=customer,
+						jcb_record=record,
+					)
+					record.paid_amount = (record.paid_amount or Decimal("0.00")) + allocation_amount
+					record.save(update_fields=["paid_amount", "pending_amount", "status", "updated_at"])
+					_sync_jcb_transactions(record)
+					record.refresh_from_db(fields=["status", "pending_amount"])
+					if record.status == RecordStatus.PAID:
+						fully_paid_count += 1
+					else:
+						partial_count += 1
+				else:
+					_create_material_allocation_transaction(
+						record,
+						customer,
+						payment_date,
+						payment_method_to_use,
+						description,
+						allocation_amount,
+						category_name=transaction_category,
+						customer_payment=customer_payment,
+					)
+
+					remaining_payment -= allocation_amount
+					allocated_total += allocation_amount
+					_sync_material_sale_payment_fields(record)
+					record.refresh_from_db(fields=["payment_status", "pending_amount"])
+					if record.payment_status == RecordStatus.PAID:
+						fully_paid_count += 1
+					else:
+						partial_count += 1
+					continue
 
 				remaining_payment -= allocation_amount
 				allocated_total += allocation_amount
-				_sync_material_sale_payment_fields(record)
-				record.refresh_from_db(fields=["payment_status", "pending_amount"])
-				if record.payment_status == RecordStatus.PAID:
-					fully_paid_count += 1
-				else:
-					partial_count += 1
 
 		# Handle manually added due amounts
 		manual_due_to_allocate = allocate_manual_due

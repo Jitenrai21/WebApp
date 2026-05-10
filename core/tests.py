@@ -325,6 +325,56 @@ class DashboardWorkflowTests(TestCase):
 		self.assertIn(1200.0, top_values)
 		self.assertIn(800.0, top_values)
 
+	def test_dashboard_combined_sales_include_module_sales(self):
+		self.client.login(username="dash", password="pass1234")
+
+		BlocksRecord.objects.create(
+			date="2026-03-01",
+			record_type=BlocksRecordType.SALE,
+			customer=self.customer,
+			unit_type=BlocksUnitType.SIX_INCH,
+			quantity=5,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date="2026-03-12",
+		)
+		CementRecord.objects.create(
+			date="2026-03-01",
+			record_type=CementRecordType.SALE,
+			customer=self.customer,
+			unit_type=CementUnitType.PPC,
+			quantity=3,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date="2026-03-12",
+		)
+		BambooRecord.objects.create(
+			date="2026-03-01",
+			record_type=BambooRecordType.SALE,
+			customer=self.customer,
+			quantity=2,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date="2026-03-12",
+		)
+
+		response = self.client.get(
+			reverse("dashboard"),
+			{"date_from": "2026-03-01", "date_to": "2026-03-31"},
+		)
+		self.assertEqual(response.status_code, 200)
+
+		self.assertEqual(response.context["kpis"]["total_sales"], Decimal("2200.00"))
+		self.assertEqual(response.context["sales_trend_values"], [2200.0])
+
+		top_labels = response.context["top_customer_labels"]
+		top_values = response.context["top_customer_values"]
+		self.assertIn(2200.0, top_values)
+		self.assertEqual(top_labels[0], "Dashboard Client")
+
 	def test_dashboard_material_income_includes_partial_payments(self):
 		self.client.login(username="dash", password="pass1234")
 		BlocksRecord.objects.create(
@@ -344,6 +394,63 @@ class DashboardWorkflowTests(TestCase):
 		)
 		self.assertEqual(response.status_code, 200)
 		self.assertEqual(response.context["blocks_summary"]["total_sale_income"], Decimal("400.00"))
+
+	def test_dashboard_overdue_kpi_includes_material_sales(self):
+		self.client.login(username="dash", password="pass1234")
+		today = bs_today_date()
+		overdue_date = today - timedelta(days=2)
+
+		Sale.objects.create(
+			invoice_number="INV-D-OVERDUE",
+			customer=self.customer,
+			total_amount=Decimal("500.00"),
+			paid_amount=Decimal("0.00"),
+			due_date=overdue_date,
+			date=today - timedelta(days=10),
+			alert_enabled=True,
+			status=RecordStatus.PENDING,
+			items=[{"item": "Overdue", "quantity": 1, "price": 500}],
+		)
+		BlocksRecord.objects.create(
+			date=today - timedelta(days=3),
+			record_type=BlocksRecordType.SALE,
+			customer=self.customer,
+			unit_type=BlocksUnitType.SIX_INCH,
+			quantity=5,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date=overdue_date,
+			alert_enabled=True,
+		)
+		CementRecord.objects.create(
+			date=today - timedelta(days=3),
+			record_type=CementRecordType.SALE,
+			customer=self.customer,
+			unit_type=CementUnitType.PPC,
+			quantity=3,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date=overdue_date,
+			alert_enabled=True,
+		)
+		BambooRecord.objects.create(
+			date=today - timedelta(days=3),
+			record_type=BambooRecordType.SALE,
+			customer=self.customer,
+			quantity=2,
+			price_per_unit=Decimal("100.00"),
+			paid_amount=Decimal("0.00"),
+			payment_status=RecordStatus.PENDING,
+			due_date=overdue_date,
+			alert_enabled=True,
+		)
+
+		response = self.client.get(reverse("dashboard"))
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(response.context["kpis"]["overdue_count"], 4)
+		self.assertEqual(response.context["kpis"]["overdue_amount"], Decimal("1500.00"))
 
 
 class SalePaymentSyncRegressionTests(TestCase):
@@ -867,6 +974,80 @@ class JCBRecordCustomerAssignmentTests(TestCase):
 
 		tx = Transaction.objects.get(jcb_record=record, type=TransactionType.INCOME)
 		self.assertEqual(tx.amount, Decimal("6000.00"))
+
+	def test_jcb_create_auto_applies_customer_credit_balance(self):
+		self.client.login(username="jcb-user", password="pass1234")
+		self.customer.credit_balance = Decimal("1200.00")
+		self.customer.save(update_fields=["credit_balance", "updated_at"])
+
+		response = self.client.post(
+			reverse("jcb_record_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"customer_input": self.customer.name,
+				"site_name": "Credit Auto Site",
+				"start_time": "1.00",
+				"end_time": "3.00",
+				"status": RecordStatus.PENDING,
+				"rate": "2000.00",
+				"total_amount": "5000.00",
+				"paid_amount": "0.00",
+				"expense_item": "",
+				"expense_amount": "",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record = JCBRecord.objects.get(site_name="Credit Auto Site")
+		self.customer.refresh_from_db()
+
+		self.assertEqual(record.paid_amount, Decimal("1200.00"))
+		self.assertEqual(record.pending_amount, Decimal("3800.00"))
+		self.assertEqual(record.status, RecordStatus.PENDING)
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+
+		credit_tx = Transaction.objects.filter(
+			jcb_record=record,
+			type=TransactionType.INCOME,
+			category__name="Credit Balance Applied",
+		).first()
+		self.assertIsNotNone(credit_tx)
+		self.assertEqual(credit_tx.amount, Decimal("1200.00"))
+
+	def test_customer_allocate_payment_can_select_jcb_pending_record(self):
+		self.client.login(username="jcb-user", password="pass1234")
+		self.customer.credit_balance = Decimal("2000.00")
+		self.customer.save(update_fields=["credit_balance", "updated_at"])
+
+		record = JCBRecord.objects.create(
+			date=bs_today_date(),
+			customer=self.customer,
+			site_name="Allocate JCB Site",
+			start_time=Decimal("1.00"),
+			end_time=Decimal("4.00"),
+			rate=Decimal("2000.00"),
+			total_amount=Decimal("6000.00"),
+			paid_amount=Decimal("0.00"),
+			status=RecordStatus.PENDING,
+		)
+
+		response = self.client.post(
+			reverse("customer_allocate_payment", args=[self.customer.pk]),
+			data={
+				"allocation_mode": "credit",
+				"payment_date": bs_today_date().isoformat(),
+				"jcb_ids": [str(record.id)],
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		record.refresh_from_db()
+		self.customer.refresh_from_db()
+
+		self.assertEqual(record.paid_amount, Decimal("2000.00"))
+		self.assertEqual(record.pending_amount, Decimal("4000.00"))
+		self.assertEqual(record.status, RecordStatus.PENDING)
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
 
 
 class AlertsWorkflowTests(TestCase):
