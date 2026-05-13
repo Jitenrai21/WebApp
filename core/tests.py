@@ -1362,6 +1362,112 @@ class CustomerDueCreditBehaviorTests(TestCase):
 		self.assertIsNone(notification.customer)
 
 
+class ExpenseSettlementTests(TestCase):
+	def setUp(self):
+		user_model = get_user_model()
+		self.user = user_model.objects.create_user(username="expense-settle", password="pass1234")
+		self.customer = Customer.objects.create(
+			name="Expense Customer",
+			type=CustomerType.REGULAR,
+			credit_balance=Decimal("100.00"),
+			manual_due_amount=Decimal("50.00"),
+		)
+
+	def test_create_customer_assigned_expense_deducts_credit_and_moves_remainder_to_due(self):
+		self.client.login(username="expense-settle", password="pass1234")
+
+		response = self.client.post(
+			reverse("transaction_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"amount": "250.00",
+				"type": TransactionType.EXPENSE,
+				"payment_method": "cash",
+				"customer_input": self.customer.name,
+				"category_input": "Fuel",
+				"description": "Fuel expense assigned to customer",
+			},
+		)
+
+		self.assertEqual(response.status_code, 302)
+		transaction = Transaction.objects.get(description="Fuel expense assigned to customer")
+		self.customer.refresh_from_db()
+
+		self.assertEqual(transaction.expense_credit_applied, Decimal("100.00"))
+		self.assertEqual(transaction.expense_due_remainder, Decimal("150.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+		self.assertEqual(self.customer.manual_due_amount, Decimal("200.00"))
+
+	def test_delete_customer_assigned_expense_restores_previous_balances(self):
+		self.client.login(username="expense-settle", password="pass1234")
+
+		create_response = self.client.post(
+			reverse("transaction_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"amount": "180.00",
+				"type": TransactionType.EXPENSE,
+				"payment_method": "cash",
+				"customer_input": self.customer.name,
+				"category_input": "Fuel Expense",
+				"description": "Truck fuel",
+			},
+		)
+		self.assertEqual(create_response.status_code, 302)
+		transaction = Transaction.objects.get(description="Truck fuel")
+		self.customer.refresh_from_db()
+
+		self.assertEqual(transaction.expense_credit_applied, Decimal("100.00"))
+		self.assertEqual(transaction.expense_due_remainder, Decimal("80.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+		self.assertEqual(self.customer.manual_due_amount, Decimal("130.00"))
+
+		response = self.client.post(reverse("transaction_delete", args=[transaction.pk]))
+		self.assertEqual(response.status_code, 302)
+		self.customer.refresh_from_db()
+		self.assertEqual(self.customer.credit_balance, Decimal("100.00"))
+		self.assertEqual(self.customer.manual_due_amount, Decimal("50.00"))
+
+	def test_edit_customer_assigned_expense_recalculates_settlement(self):
+		self.client.login(username="expense-settle", password="pass1234")
+
+		create_response = self.client.post(
+			reverse("transaction_create"),
+			data={
+				"date": bs_today_date().isoformat(),
+				"amount": "180.00",
+				"type": TransactionType.EXPENSE,
+				"payment_method": "cash",
+				"customer_input": self.customer.name,
+				"category_input": "Fuel Expense",
+				"description": "Truck fuel",
+			},
+		)
+		self.assertEqual(create_response.status_code, 302)
+		transaction = Transaction.objects.get(description="Truck fuel")
+
+		edit_response = self.client.post(
+			reverse("transaction_edit", args=[transaction.pk]),
+			data={
+				"date": bs_today_date().isoformat(),
+				"amount": "120.00",
+				"type": TransactionType.EXPENSE,
+				"payment_method": "cash",
+				"customer_input": self.customer.name,
+				"category_input": "Fuel Expense",
+				"description": "Truck fuel adjusted",
+			},
+		)
+		self.assertEqual(edit_response.status_code, 302)
+
+		transaction.refresh_from_db()
+		self.customer.refresh_from_db()
+		self.assertEqual(transaction.expense_credit_applied, Decimal("100.00"))
+		self.assertEqual(transaction.expense_due_remainder, Decimal("20.00"))
+		self.assertEqual(self.customer.credit_balance, Decimal("0.00"))
+		self.assertEqual(self.customer.manual_due_amount, Decimal("70.00"))
+
+
 class TipperRecordsDescriptionTests(TestCase):
 	def setUp(self):
 		user_model = get_user_model()

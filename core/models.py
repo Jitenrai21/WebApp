@@ -97,6 +97,8 @@ class Transaction(TimeStampedModel):
         blank=True,
         null=True,
     )
+    expense_credit_applied = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    expense_due_remainder = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     sale = models.ForeignKey(
         "Sale",
         on_delete=models.SET_NULL,

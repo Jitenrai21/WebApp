@@ -167,6 +167,58 @@ def _get_or_create_predefined_category(name):
 	return category
 
 
+def _reverse_customer_expense_settlement(customer_id, credit_applied, due_remainder):
+	if not customer_id:
+		return
+
+	credit_applied = Decimal(str(credit_applied or Decimal("0.00"))).quantize(Decimal("0.01"))
+	due_remainder = Decimal(str(due_remainder or Decimal("0.00"))).quantize(Decimal("0.01"))
+	if credit_applied <= 0 and due_remainder <= 0:
+		return
+
+	with db_transaction.atomic():
+		customer = Customer.objects.select_for_update().get(pk=customer_id)
+		if credit_applied > 0:
+			customer.credit_balance = (customer.credit_balance + credit_applied).quantize(Decimal("0.01"))
+		if due_remainder > 0:
+			customer.manual_due_amount = max(customer.manual_due_amount - due_remainder, Decimal("0.00"))
+		customer.save(update_fields=["credit_balance", "manual_due_amount", "updated_at"])
+
+
+def _apply_customer_expense_settlement(transaction_obj):
+	if transaction_obj.type != TransactionType.EXPENSE or not transaction_obj.customer_id:
+		if transaction_obj.expense_credit_applied or transaction_obj.expense_due_remainder:
+			transaction_obj.expense_credit_applied = Decimal("0.00")
+			transaction_obj.expense_due_remainder = Decimal("0.00")
+			transaction_obj.save(update_fields=["expense_credit_applied", "expense_due_remainder", "updated_at"])
+		return {
+			"credit_applied": Decimal("0.00"),
+			"due_remainder": Decimal("0.00"),
+		}
+
+	with db_transaction.atomic():
+		customer = Customer.objects.select_for_update().get(pk=transaction_obj.customer_id)
+		available_credit = max(customer.credit_balance, Decimal("0.00"))
+		credit_applied = min(transaction_obj.amount, available_credit)
+		if credit_applied < 0:
+			credit_applied = Decimal("0.00")
+		due_remainder = (transaction_obj.amount - credit_applied).quantize(Decimal("0.01"))
+		if due_remainder < 0:
+			due_remainder = Decimal("0.00")
+
+		customer.credit_balance = (customer.credit_balance - credit_applied).quantize(Decimal("0.01"))
+		customer.manual_due_amount = (customer.manual_due_amount + due_remainder).quantize(Decimal("0.01"))
+		customer.save(update_fields=["credit_balance", "manual_due_amount", "updated_at"])
+
+		transaction_obj.expense_credit_applied = credit_applied
+		transaction_obj.expense_due_remainder = due_remainder
+		transaction_obj.save(update_fields=["expense_credit_applied", "expense_due_remainder", "updated_at"])
+		return {
+			"credit_applied": credit_applied,
+			"due_remainder": due_remainder,
+		}
+
+
 def _htmx_feedback_response(message, level="success", status=200, redirect_url=""):
 	payload = {
 		"cf-toast": {
@@ -2149,44 +2201,56 @@ def transaction_create(request):
 	if request.method == "POST":
 		form = TransactionForm(request.POST, request.FILES, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
-			customer = form.cleaned_data.get("customer")
-			transaction_type = form.cleaned_data.get("type")
-			linked_sale = form.cleaned_data.get("sale")
+			with db_transaction.atomic():
+				customer = form.cleaned_data.get("customer")
+				transaction_type = form.cleaned_data.get("type")
+				linked_sale = form.cleaned_data.get("sale")
 
-			should_auto_allocate = (
-				transaction_type == TransactionType.INCOME
-				and customer is not None
-				and linked_sale is None
-			)
-
-			if should_auto_allocate:
-				allocation_result = _auto_allocate_customer_cash_entry(
-					customer=customer,
-					payment_date=form.cleaned_data["date"],
-					payment_amount=form.cleaned_data["amount"],
-					payment_method=form.cleaned_data.get("payment_method") or PaymentMethod.CASH,
-					notes=(form.cleaned_data.get("description") or "").strip(),
+				should_auto_allocate = (
+					transaction_type == TransactionType.INCOME
+					and customer is not None
+					and linked_sale is None
 				)
 
-				summary_text = (
-					f"Auto-allocated payment: NPR {allocation_result['allocated_total']}. "
-					f"{allocation_result['fully_paid_count']} fully paid, "
-					f"{allocation_result['partial_count']} partially paid."
-				)
-				if allocation_result["remaining_payment"] > 0:
-					summary_text += (
-						f" NPR {allocation_result['remaining_payment']} added to customer credit balance."
+				if should_auto_allocate:
+					allocation_result = _auto_allocate_customer_cash_entry(
+						customer=customer,
+						payment_date=form.cleaned_data["date"],
+						payment_amount=form.cleaned_data["amount"],
+						payment_method=form.cleaned_data.get("payment_method") or PaymentMethod.CASH,
+						notes=(form.cleaned_data.get("description") or "").strip(),
 					)
-				messages.success(request, summary_text)
-				return redirect("finance_ledger")
 
-			transaction_obj = form.save()
-			if transaction_obj.sale_id:
-				linked_sale = Sale.objects.filter(pk=transaction_obj.sale_id).first()
-				if linked_sale:
-					_sync_sale_after_receipt_change(linked_sale)
-			messages.success(request, "Transaction created successfully.")
-			return redirect("finance_ledger")
+					summary_text = (
+						f"Auto-allocated payment: NPR {allocation_result['allocated_total']}. "
+						f"{allocation_result['fully_paid_count']} fully paid, "
+						f"{allocation_result['partial_count']} partially paid."
+					)
+					if allocation_result["remaining_payment"] > 0:
+						summary_text += (
+							f" NPR {allocation_result['remaining_payment']} added to customer credit balance."
+						)
+					messages.success(request, summary_text)
+					return redirect("finance_ledger")
+
+				transaction_obj = form.save(commit=False)
+				transaction_obj.save()
+				settlement_result = _apply_customer_expense_settlement(transaction_obj)
+				if transaction_obj.sale_id:
+					linked_sale = Sale.objects.filter(pk=transaction_obj.sale_id).first()
+					if linked_sale:
+						_sync_sale_after_receipt_change(linked_sale)
+				if settlement_result["credit_applied"] > 0 or settlement_result["due_remainder"] > 0:
+					messages.success(
+						request,
+						(
+							f"Transaction created successfully. NPR {settlement_result['credit_applied']} was deducted from customer credit balance "
+							f"and NPR {settlement_result['due_remainder']} was moved to customer due."
+						),
+					)
+				else:
+					messages.success(request, "Transaction created successfully.")
+				return redirect("finance_ledger")
 		messages.error(request, "Please fix the errors below.")
 	else:
 		form = TransactionForm(**_form_calendar_mode_kwargs(request))
@@ -2207,18 +2271,39 @@ def transaction_create(request):
 def transaction_edit(request, pk):
 	transaction = get_object_or_404(Transaction, pk=pk)
 	original_sale_id = transaction.sale_id
+	original_customer_id = transaction.customer_id
+	original_type = transaction.type
+	original_expense_credit_applied = transaction.expense_credit_applied
+	original_expense_due_remainder = transaction.expense_due_remainder
 
 	if request.method == "POST":
 		form = TransactionForm(request.POST, request.FILES, instance=transaction, **_form_calendar_mode_kwargs(request))
 		if form.is_valid():
-			updated_transaction = form.save()
-			sale_ids_to_sync = {sale_id for sale_id in [original_sale_id, updated_transaction.sale_id] if sale_id}
-			for sale_id in sale_ids_to_sync:
-				linked_sale = Sale.objects.filter(pk=sale_id).first()
-				if linked_sale:
-					_sync_sale_after_receipt_change(linked_sale)
-			messages.success(request, "Transaction updated successfully.")
-			return redirect("finance_ledger")
+			with db_transaction.atomic():
+				updated_transaction = form.save(commit=False)
+				updated_transaction.save()
+				_reverse_customer_expense_settlement(
+					original_customer_id,
+					original_expense_credit_applied if original_type == TransactionType.EXPENSE else Decimal("0.00"),
+					original_expense_due_remainder if original_type == TransactionType.EXPENSE else Decimal("0.00"),
+				)
+				settlement_result = _apply_customer_expense_settlement(updated_transaction)
+				sale_ids_to_sync = {sale_id for sale_id in [original_sale_id, updated_transaction.sale_id] if sale_id}
+				for sale_id in sale_ids_to_sync:
+					linked_sale = Sale.objects.filter(pk=sale_id).first()
+					if linked_sale:
+						_sync_sale_after_receipt_change(linked_sale)
+				if settlement_result["credit_applied"] > 0 or settlement_result["due_remainder"] > 0:
+					messages.success(
+						request,
+						(
+							f"Transaction updated successfully. NPR {settlement_result['credit_applied']} was deducted from customer credit balance "
+							f"and NPR {settlement_result['due_remainder']} was moved to customer due."
+						),
+					)
+				else:
+					messages.success(request, "Transaction updated successfully.")
+				return redirect("finance_ledger")
 		messages.error(request, "Please fix the errors below.")
 	else:
 		form = TransactionForm(instance=transaction, **_form_calendar_mode_kwargs(request))
@@ -2247,11 +2332,17 @@ def transaction_delete(request, pk):
 	entry_label = f"{transaction_obj.get_type_display()} entry on {transaction_obj.date}"
 
 	try:
-		transaction_obj.delete()
-		if linked_sale_id:
-			linked_sale = Sale.objects.filter(pk=linked_sale_id).first()
-			if linked_sale:
-				_sync_sale_after_receipt_change(linked_sale)
+		with db_transaction.atomic():
+			_reverse_customer_expense_settlement(
+				transaction_obj.customer_id if transaction_obj.type == TransactionType.EXPENSE else None,
+				transaction_obj.expense_credit_applied if transaction_obj.type == TransactionType.EXPENSE else Decimal("0.00"),
+				transaction_obj.expense_due_remainder if transaction_obj.type == TransactionType.EXPENSE else Decimal("0.00"),
+			)
+			transaction_obj.delete()
+			if linked_sale_id:
+				linked_sale = Sale.objects.filter(pk=linked_sale_id).first()
+				if linked_sale:
+					_sync_sale_after_receipt_change(linked_sale)
 	except Exception:
 		if request.headers.get("HX-Request"):
 			return _htmx_feedback_response(

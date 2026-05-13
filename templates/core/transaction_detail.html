@@ -34,6 +34,10 @@
                     <p><span class="font-semibold">Payment Method:</span> {{ transaction.get_payment_method_display }}</p>
                     <p><span class="font-semibold">Category:</span> {{ transaction.category }}</p>
                     <p><span class="font-semibold">Customer:</span> {% if transaction.customer %}<a href="{% url 'customer_detail' transaction.customer.id %}" class="link link-primary">{{ transaction.customer.name }}</a>{% else %}Unassigned{% endif %}</p>
+                    {% if transaction.type == 'expense' and transaction.customer %}
+                    <p><span class="font-semibold">Credit Deducted:</span> NPR {{ transaction.expense_credit_applied|npr_amount }}</p>
+                    <p><span class="font-semibold">Moved to Due:</span> NPR {{ transaction.expense_due_remainder|npr_amount }}</p>
+                    {% endif %}
                     <p><span class="font-semibold">Linked Sale:</span> {% if transaction.sale %}<a href="{% url 'sale_detail' transaction.sale.id %}" class="link link-primary">{{ transaction.sale.invoice_number }}</a>{% else %}None{% endif %}</p>
                     <p><span class="font-semibold">Linked Bamboo Record:</span> {% if transaction.bamboo_record %}<a href="{% url 'bamboo_record_detail' transaction.bamboo_record.id %}" class="link link-primary">{{ transaction.bamboo_record.date|calendar_date:request }}</a>{% else %}None{% endif %}</p>
                     <p><span class="font-semibold">Linked Cement Record:</span> {% if transaction.cement_record %}<a href="{% url 'cement_record_detail' transaction.cement_record.id %}" class="link link-primary">{{ transaction.cement_record.date|calendar_date:request }}</a>{% else %}None{% endif %}</p>
