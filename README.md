@@ -55,6 +55,10 @@ The app is split into focused modules under the `core` app. Major capabilities:
 - Transactions / Finance Ledger
   - Categorized income/expense transactions with optional attachment and links to customers, sales, or records.
   - Predefined categories and free-form categories supported.
+  - Customer-assigned expense settlement: when an `expense` transaction is created/edited/deleted with a customer assigned,
+    the system will deduct up to the customer's available `credit_balance` and move any remainder into the customer's
+    `manual_due_amount` (so balances never go negative). The transaction now records `expense_credit_applied` and
+    `expense_due_remainder` for auditability and these values are shown on the transaction detail page.
 
 - Machine (JCB) records
   - Track start/end times, calculated total work hours, rate-based income, and optional expense items.
@@ -76,6 +80,10 @@ The app is split into focused modules under the `core` app. Major capabilities:
 - Dashboard and analytics
   - KPI cards, trend charts, and date-range filtering (HTMX for partial updates).
   - Exports for major tables (transactions, sales, JCB, tipper, material records).
+  - Sales KPIs and sales trend now aggregate across the full "sales universe": direct `Sale` records plus
+    `BlocksRecord`, `CementRecord`, and `BambooRecord` sale rows. Top-customer ranking uses the combined totals.
+  - Overdue KPI now counts overdue items coming from both direct invoices and material sale modules (blocks/cement/bamboo)
+    using the same alert-enabled / past-due rule set used by the Alerts module.
 
 ---
 
@@ -160,6 +168,10 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
+Note: this repository includes a recent schema change adding two audit fields on `Transaction` (`expense_credit_applied`,
+`expense_due_remainder`) and the migration `core/migrations/0033_transaction_expense_settlement_fields.py` — run `migrate`
+before running tests or starting the app.
+
 Run dev server
 
 ```bash
@@ -176,6 +188,9 @@ python manage.py test
 # Use test settings with SQLite for restricted DB environments
 python manage.py test --settings=config.settings_test
 ```
+
+If your environment restricts creating test databases (Postgres permission errors), run the checks and targeted tests
+in a permitted environment or use `--settings=config.settings_test` to run against a local SQLite test configuration.
 
 ---
 
@@ -202,6 +217,9 @@ Key templates and modules:
 - Template: [templates/core/jcb_records.html](templates/core/jcb_records.html) — JCB list/filter UI (includes customer filter)
 - Template partial: [templates/core/partials/jcb_records_table.html](templates/core/partials/jcb_records_table.html) — JCB listing table with customer column
 - Core module: [core/views.py](core/views.py) — customer due aggregation, JCB transaction sync, and list filtering logic
+- Template: [templates/core/transaction_detail.html](templates/core/transaction_detail.html) — now shows `Credit Deducted` and `Moved to Due` for
+  customer-assigned expense entries.
+ - Migration: [core/migrations/0033_transaction_expense_settlement_fields.py](core/migrations/0033_transaction_expense_settlement_fields.py)
 - Base template: [templates/base.html](templates/base.html) — navbar / topbar responsive tweaks
 
 Main routes (examples)
@@ -219,6 +237,11 @@ Main routes (examples)
 
 - 2026-05-07 — Added optional customer assignment flow for JCB records; JCB customer filtering; customer-profile due/pending aggregation now includes assigned pending JCB work; material sale detail pages now show itemized-style sale breakdown.
 - 2026-04-28 — Added optional `unit` for sale items; extended sales exports with item-level columns; sales UI and due_date defaults; navbar responsive fixes.
+ - 2026-05-13 — Dashboard & overdue KPI: `Total Sales`, `Sales Trend`, and `Top Customers` now include combined sales from `Sale`, `BlocksRecord`, `CementRecord`, and `BambooRecord`.
+   Overdue KPI now includes overdue material sale rows (blocks/cement/bamboo) using the same alert rules as invoices.
+   Expense settlement: customer-assigned `Transaction` of type `expense` now deducts available customer credit up to the expense amount and moves any remainder into `Customer.manual_due_amount`.
+   Audit: `Transaction` now stores `expense_credit_applied` and `expense_due_remainder`; the transaction detail page displays these values.
+   Added migration `0033_transaction_expense_settlement_fields.py` and regression tests covering create/edit/delete lifecycle for expense settlement.
 - (Previous entries retained in project `roadmap.txt` and commit history.)
 
 ---
